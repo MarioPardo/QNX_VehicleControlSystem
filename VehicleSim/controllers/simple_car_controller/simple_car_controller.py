@@ -111,7 +111,6 @@ class VehicleManager:
         self.driver.setDippedBeams(commands['headlights'])
 
     def run(self):
-        # The main simulation loop
         while self.driver.step() != -1:
             cmds = self.get_keyboard_commands()
             self.apply_commands(cmds)
@@ -119,11 +118,9 @@ class VehicleManager:
             print("Throttle:", self.throttle)
             print("BBrake:", self.brake)
             
-            # Send steering status via UDP every 5 seconds
             current_time = self.driver.getTime()
             if current_time - self.last_udp_send_time >= self.udp_send_interval:
-                # Build the steering status message
-                steering_angle_deg = self.target_steering * 540  # Convert normalized steering to degrees
+                steering_angle_deg = self.target_steering * 540
                 message = {
                     "SteeringSystemStatus": {
                         "Status": "HEALTHY",
@@ -132,6 +129,10 @@ class VehicleManager:
                 }
                 self.udp_comm.send_json_message(message)
                 self.last_udp_send_time = current_time
+            
+            received = self.udp_comm.receive_message()
+            if received:
+                print(f"UDP RECEIVED: {received}")
 
 if __name__ == '__main__':
     controller = VehicleManager()
