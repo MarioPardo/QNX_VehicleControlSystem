@@ -9,12 +9,12 @@ L: Toggle Headlights
 """
 
 from vehicle import Driver
+from udp_communicator import UDPCommunicator
 
 # Constants to tune driving feel
-THROTTLE_INCREMENT = 0.02      # Throttle increase rate (0.0 to 1.0)
-MAX_STEERING = 0.5             # REDUCED: Keeps inner wheels within mechanical limits
-STEERING_INCREMENT = 0.02      # Steering speed
-
+THROTTLE_INCREMENT = 0.02    
+MAX_STEERING = 0.5          
+STEERING_INCREMENT = 0.02  
 class VehicleManager:
     def __init__(self):
         # Initialize the Driver API
@@ -34,6 +34,13 @@ class VehicleManager:
         
         # Track the last key pressed to handle toggles properly
         self.prev_key = -1
+        
+        # Initialize UDP communication
+        self.udp_comm = UDPCommunicator(send_host='127.0.0.1', send_port=5000, recv_port=5001)
+        
+        # Timer for periodic UDP messages (send every 5 seconds)
+        self.last_udp_send_time = 0
+        self.udp_send_interval = 5.0  # seconds
 
     def get_keyboard_commands(self):
         key = self.keyboard.getKey()
@@ -49,9 +56,9 @@ class VehicleManager:
             self.throttle -= THROTTLE_INCREMENT * 2  # Cut throttle quickly when braking
             self.brake = 1.0  # Max brake intensity
         elif key == ord('A'):
-            self.target_steering -= STEERING_INCREMENT  # Steer Left
+            self.target_steering -= STEERING_INCREMENT 
         elif key == ord('D'):
-            self.target_steering += STEERING_INCREMENT  # Steer Right
+            self.target_steering += STEERING_INCREMENT 
         else:
             # Auto-center steering and decay throttle if no keys are pressed
             self.target_steering *= 0.9
@@ -100,7 +107,7 @@ class VehicleManager:
         self.driver.setThrottle(commands['throttle'])
         self.driver.setSteeringAngle(commands['steering'])
         self.driver.setBrakeIntensity(commands['brake'])
-        # self.driver.setIndicator(commands['indicator']) # Uncomment if you want blinkers active
+        # self.driver.setIndicator(commands['indicator'])#TODO look into blinkers later
         self.driver.setDippedBeams(commands['headlights'])
 
     def run(self):
@@ -111,6 +118,20 @@ class VehicleManager:
 
             print("Throttle:", self.throttle)
             print("BBrake:", self.brake)
+            
+            # Send steering status via UDP every 5 seconds
+            current_time = self.driver.getTime()
+            if current_time - self.last_udp_send_time >= self.udp_send_interval:
+                # Build the steering status message
+                steering_angle_deg = self.target_steering * 540  # Convert normalized steering to degrees
+                message = {
+                    "SteeringSystemStatus": {
+                        "Status": "HEALTHY",
+                        "ActualAngle": steering_angle_deg
+                    }
+                }
+                self.udp_comm.send_json_message(message)
+                self.last_udp_send_time = current_time
 
 if __name__ == '__main__':
     controller = VehicleManager()
