@@ -22,8 +22,12 @@ class DashboardTester:
 
 class VehicleSimSender:
     def __init__(self):
-        self.messages = []
-        self.frequencies = []
+        self.messages = [
+            {"SteeringSystemStatus": {"Status": "HEALTHY", "ActualAngle": 0.0}},
+            {"BrakingSystemStatus": {"Status": "HEALTHY", "Temperature": 85.0}},
+            {"ThrottleSystemStatus": {"Status": "HEALTHY", "ActualThrottle": 50.0, "RPM": 3000, "Temperature": 90.0}}
+        ]
+        self.frequencies = [60, 10, 30]
 
 
 def send_messages(message, frequency_ms, host, port):

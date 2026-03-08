@@ -48,6 +48,7 @@ class BrakingSubsystem:
         self.driver = driver
         self.status = "HEALTHY"
         self.intensity = 0.0
+        self.temperature = 85.0
         
     def setBraking(self, intensity):
         self.intensity = intensity
@@ -55,6 +56,17 @@ class BrakingSubsystem:
     
     def receiveMessage(self, message):
         pass
+    
+    def sendStatus(self):
+        global udp_comm
+        if udp_comm:
+            message = {
+                "BrakingSystemStatus": {
+                    "Status": self.status,
+                    "Temperature": self.temperature
+                }
+            }
+            udp_comm.send_json_message(message)
     
     def sendMessage(self):
         pass
@@ -65,13 +77,30 @@ class ThrottleSubsystem:
         self.driver = driver
         self.status = "HEALTHY"
         self.value = 0.0
+        self.rpm = 0
+        self.temperature = 90.0
         
     def setThrottle(self, value):
         self.value = value
         self.driver.setThrottle(value)
+        self.rpm = int(value * 6000)
     
     def receiveMessage(self, message):
         pass
+    
+    def sendStatus(self):
+        global udp_comm
+        if udp_comm:
+            actual_throttle = self.value * 100
+            message = {
+                "ThrottleSystemStatus": {
+                    "Status": self.status,
+                    "ActualThrottle": actual_throttle,
+                    "RPM": self.rpm,
+                    "Temperature": self.temperature
+                }
+            }
+            udp_comm.send_json_message(message)
     
     def sendMessage(self):
         pass
