@@ -33,7 +33,7 @@ The braking system is the highest priority subsystem, responsible for safely dec
 
 **Dashboard → QNX**
 ```json
-BrakingInput: {
+BrakingInput*: {
     Percentage: 0-100
 }
 ```
@@ -47,7 +47,7 @@ BrakingCommand: {
 
 **Vehicle Simulation → QNX**
 ```json
-BrakingSystemStatus: {
+BrakingSystemStatus*: {
     Status: "HEALTHY" | "DEGRADED" | "FAILED",
     Temperature: float
 }
@@ -93,14 +93,14 @@ The throttle system controls vehicle acceleration. It processes accelerator peda
 
 **Dashboard → QNX**
 ```json
-ThrottleInput: {
+ThrottleInput*: {
     Percentage: 0-100
 }
 ```
 
 **QNX → Vehicle Simulation**
 ```json
-ThrottleCommand*: {
+ThrottleCommand: {
     Percentage: 0-100
 }
 ```
@@ -197,4 +197,8 @@ Messages with a * beside them are those responsible for keeping these deadlines 
 1. **Priority 1 (Braking)**: Highest priority - every 10ms.
 2. **Priority 2 (Throttle)**: Medium priority - every 30ms
 3. **Priority 3 (Steering)**: Standard priority - every 60ms
+
+For each communication path that has a required timing, the receiving HealthMonitor process is what will ensure that
+subsystems are running as expected. 
+
 
