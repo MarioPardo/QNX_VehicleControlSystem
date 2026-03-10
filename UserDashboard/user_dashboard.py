@@ -2,25 +2,42 @@ import sys
 import json
 import socket
 import threading
+import time
 
-from PySide6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QLabel,
+    QVBoxLayout, QHBoxLayout,
+    QPushButton, QSlider
+)
+from PySide6.QtCore import Qt, Signal, QTimer
+
 
 class Dashboard(QWidget):
 
-    # signal used to safely update UI from network thread
     packet_received = Signal(str)
 
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("QNX Vehicle Dashboard")
-        self.setGeometry(200, 200, 420, 300)
+        self.setGeometry(200, 200, 520, 450)
 
-        # connect signal to UI processor
         self.packet_received.connect(self.process_packet)
 
-        # Speed Display
+        # UDP socket
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("127.0.0.1", 6000))
+        self.server_address = ("127.0.0.1", 5000)
+
+        self.last_packet_time = time.time()
+
+        # Vehicle state
+        self.throttle = 0
+        self.brake = 0
+        self.steering = 0
+        self.snow_mode = False
+
+        # SPEED DISPLAY 
         self.speed_label = QLabel("0")
         self.speed_label.setAlignment(Qt.AlignCenter)
         self.speed_label.setStyleSheet("""
@@ -29,12 +46,18 @@ class Dashboard(QWidget):
             color: #38bdf8;
         """)
 
-        self.kmh_label = QLabel("km/h")
-        self.kmh_label.setAlignment(Qt.AlignCenter)
-        self.kmh_label.setStyleSheet("font-size: 20px; color: #94a3b8;")
+        self.speed_unit = QLabel("km/h")
+        self.speed_unit.setAlignment(Qt.AlignCenter)
+        self.speed_unit.setStyleSheet("font-size: 20px; color: #94a3b8;")
 
-        # Warning Indicator 
-        self.warning_label = QLabel("SYSTEM OK")
+        # QNX Control System STATUS 
+        self.health_label = QLabel("QNX Control System CONNECTED")
+        self.health_label.setAlignment(Qt.AlignCenter)
+        self.health_label.setStyleSheet("color:green")
+        
+
+        # WARNING SECTION 
+        self.warning_label = QLabel("No warnings")
         self.warning_label.setAlignment(Qt.AlignCenter)
         self.warning_label.setStyleSheet("""
             font-size: 18px;
@@ -44,25 +67,67 @@ class Dashboard(QWidget):
             color: white;
         """)
 
-        # Driver Input Display 
-        self.input_label = QLabel("Driver Input: None")
-        self.input_label.setAlignment(Qt.AlignCenter)
-        self.input_label.setStyleSheet("font-size: 16px; color: #e2e8f0;")
+        # CONTROL BUTTONS 
+        self.throttle_btn = QPushButton("Throttle")
+        self.throttle_btn.pressed.connect(self.throttle_on)
+        self.throttle_btn.released.connect(self.throttle_off)
 
-        # Layout 
+        self.brake_btn = QPushButton("Brake")
+        self.brake_btn.pressed.connect(self.brake_on)
+        self.brake_btn.released.connect(self.brake_off)
+        
+
+        # Snow mode toggle
+        self.snow_btn = QPushButton("Snow Mode OFF")
+        self.snow_btn.clicked.connect(self.toggle_snow_mode)
+
+        # Button styling
+        button_style = """
+        QPushButton {
+            font-size: 16px;
+            padding: 8px;
+            border-radius: 8px;
+            background-color: #1e293b;
+            color: white;
+        }
+        QPushButton:hover {
+            background-color: #334155;
+        }
+        QPushButton:pressed {
+            background-color: #0ea5e9;
+        }
+        """
+
+        self.throttle_btn.setStyleSheet(button_style)
+        self.brake_btn.setStyleSheet(button_style)
+        self.snow_btn.setStyleSheet(button_style)
+        # Steering slider
+        self.steering_slider = QSlider(Qt.Horizontal)
+        self.steering_slider.setMinimum(-540)
+        self.steering_slider.setMaximum(540)
+        self.steering_slider.valueChanged.connect(self.update_steering)
+
+        # LAYOUT 
         main_layout = QVBoxLayout()
-        center_layout = QHBoxLayout()
 
-        center_layout.addStretch()
-        center_layout.addWidget(self.speed_label)
-        center_layout.addStretch()
+        speed_layout = QHBoxLayout()
+        speed_layout.addStretch()
+        speed_layout.addWidget(self.speed_label)
+        speed_layout.addStretch()
 
-        main_layout.addLayout(center_layout)
-        main_layout.addWidget(self.kmh_label)
-        main_layout.addSpacing(20)
+        control_layout = QHBoxLayout()
+        control_layout.addWidget(self.throttle_btn)
+        control_layout.addWidget(self.brake_btn)
+        control_layout.addWidget(self.snow_btn)
+
+        main_layout.addWidget(self.health_label)
         main_layout.addWidget(self.warning_label)
-        main_layout.addSpacing(20)
-        main_layout.addWidget(self.input_label)
+        main_layout.addLayout(speed_layout)
+        main_layout.addWidget(self.speed_unit)
+        main_layout.addLayout(control_layout)
+
+        main_layout.addWidget(QLabel("Steering"))
+        main_layout.addWidget(self.steering_slider)
 
         self.setLayout(main_layout)
 
@@ -75,77 +140,131 @@ class Dashboard(QWidget):
             }
         """)
 
-        # start listening to ECU
+        # NETWORK
         self.start_network()
 
-   
-    # Network connection 
+        # Control messages every 100 ms
+        self.control_timer = QTimer()
+        self.control_timer.timeout.connect(self.send_controls)
+        self.control_timer.start(100)
+
+        # Health monitor
+        self.health_timer = QTimer()
+        self.health_timer.timeout.connect(self.check_connection)
+        self.health_timer.start(1000)
+
+    # NETWORK LISTENER 
     def start_network(self):
         thread = threading.Thread(target=self.network_listener, daemon=True)
         thread.start()
 
     def network_listener(self):
-        HOST = "127.0.0.1"
-        PORT = 5000
-
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        print("Connecting to ECU...")
-        client.connect((HOST, PORT))
-        print("Connected to ECU")
-
-        buffer = ""
 
         while True:
-            data = client.recv(1024).decode()
-            buffer += data
+            data, _ = self.sock.recvfrom(1024)
+            self.packet_received.emit(data.decode())
 
-            # messages separated by newline
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                self.packet_received.emit(line)
-    # Process incoming JSON
-    
+    # SEND CONTROL MESSAGES 
+    def send_controls(self):
+
+        throttle_msg = {
+            "type": "ThrottleInput",
+            "data": {"Percentage": self.throttle},
+            "timestamp": time.time()
+        }
+
+        brake_msg = {
+            "type": "BrakingInput",
+            "data": {"Percentage": self.brake},
+            "timestamp": time.time()
+        }
+
+        steering_msg = {
+            "type": "SteeringInput",
+            "data": {"Angle": self.steering, "Rate": 1.0},
+            "timestamp": time.time()
+        }
+
+        heartbeat = {"type": "Heartbeat"}
+
+        self.sock.sendto(json.dumps(throttle_msg).encode(), self.server_address)
+        self.sock.sendto(json.dumps(brake_msg).encode(), self.server_address)
+        self.sock.sendto(json.dumps(steering_msg).encode(), self.server_address)
+        self.sock.sendto(json.dumps(heartbeat).encode(), self.server_address)
+
+    # PROCESS TELEMETRY
     def process_packet(self, json_data):
-        data = json.loads(json_data)
 
-        # update speed
-        self.speed_label.setText(str(int(data['speed'])))
+        message = json.loads(json_data)
 
-        # update warning indicator
-        if data["warning"]:
-            self.warning_label.setText("SENSOR FAILURE")
-            self.warning_label.setStyleSheet("""
-                font-size: 18px;
-                padding: 8px;
-                border-radius: 8px;
-                background-color: #dc2626;
-                color: white;
-            """)
+        if message["type"] == "VehicleTelemetry":
+
+            data = message["data"]
+
+            speed = data["Speed"]
+            snow_mode = data["SnowMode"]
+            safe_mode = data["SafeMode"]
+
+            self.speed_label.setText(str(int(speed)))
+
+            # Snow mode button update
+            if snow_mode:
+                self.snow_btn.setText("Snow Mode ON")
+                self.snow_mode = True
+            else:
+                self.snow_btn.setText("Snow Mode OFF")
+                self.snow_mode = False
+
+            # Warning logic
+            if safe_mode:
+                self.warning_label.setText("WARNING: VEHICLE IN SAFE MODE")
+            elif speed > 100:
+                self.warning_label.setText("WARNING: HIGH SPEED")
+            else:
+                self.warning_label.setText("No warnings")
+
+            self.last_packet_time = time.time()
+
+    # HEALTH MONITOR 
+    def check_connection(self):
+
+        if time.time() - self.last_packet_time > 3:
+            self.health_label.setText("QNX Control System DISCONNECTED")
+            self.health_label.setStyleSheet("color:red")
+            self.warning_label.setText("WARNING: QNX Control System CONNECTION LOST")
         else:
-            self.warning_label.setText("SYSTEM OK")
-            self.warning_label.setStyleSheet("""
-                font-size: 18px;
-                padding: 8px;
-                border-radius: 8px;
-                background-color: #16a34a;
-                color: white;
-            """)
-    # Keyboard input (driver controls)
+            self.health_label.setText("QNX Control System CONNECTED")
+            self.health_label.setStyleSheet("color:green")
 
-    def keyPressEvent(self, event):
+    # DRIVER INPUT
+    def throttle_on(self):
+        self.throttle = 100
 
-        if event.key() == Qt.Key_W:
-            self.input_label.setText("Driver Input: Accelerate")
+    def throttle_off(self):
+        self.throttle = 0
 
-        elif event.key() == Qt.Key_S:
-            self.input_label.setText("Driver Input: Brake")
+    def brake_on(self):
+        self.brake = 100
 
-        elif event.key() == Qt.Key_A:
-            self.input_label.setText("Driver Input: Steer Left")
+    def brake_off(self):
+        self.brake = 0
 
-        elif event.key() == Qt.Key_D:
-            self.input_label.setText("Driver Input: Steer Right")
+    def update_steering(self, value):
+        self.steering = value
+
+    # SNOW MODE
+    def toggle_snow_mode(self):
+
+        self.snow_mode = not self.snow_mode
+
+        msg = {
+            "type": "SnowModeToggle",
+            "data": {"Enabled": self.snow_mode},
+            "timestamp": time.time()
+        }
+
+        self.sock.sendto(json.dumps(msg).encode(), self.server_address)
+
 
 app = QApplication(sys.argv)
 window = Dashboard()
