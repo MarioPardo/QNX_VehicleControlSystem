@@ -16,14 +16,14 @@
 #include <pthread.h>
 
 
-BUFFER = 1040;
+
 
 #define LISTEN_PORT 5555
 #define SEND_PORT   5556
 #define DEST_IP     "127.0.0.1"
 
-int sockfd;
-struct sockaddr_in dest;
+extern int sockfd;
+extern struct sockaddr_in dest;
 
 void setup();
 

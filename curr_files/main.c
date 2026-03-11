@@ -2,12 +2,15 @@
 
 //Main
 
+int sockfd;
+struct sockaddr_in dest;
+
 int main() {
     // setup socket
     setup();
 
     // launch both threads
-    pthread_t recv_thread, send_thread;
+    pthread_t recv_thread, send_thread; 
     pthread_create(&recv_thread, NULL, recv_loop, NULL);
     pthread_create(&send_thread, NULL, send_loop, NULL);
 
