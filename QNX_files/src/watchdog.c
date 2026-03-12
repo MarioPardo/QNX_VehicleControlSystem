@@ -8,14 +8,30 @@
 #include "includes/defs.h"
 
 
+
+//
+
+
 //Subsystem info
 #define MAX_SUBSYSTEMS 10
+
+	//index for each system in table
 #define SYS_BRAKING 0
 
+	//response times : how often we expect them to check in
+#define SYS_BRAKING_RESPONSETIME_MS 500
+
+	//critical times : how many MS since last check in such that we kill and restart process
+#define SYS_BRAKING_CRITICALTIME_MS 3000
+
+
+
+
+//table storing subsystem info
 typedef struct {
     pid_t pid;
     uint64_t lastTimeReported;
-    int pingFrequencyMs;
+    int responseTime;
     int isAlive;
     int chid;
     //TODO add string to store subsystem name
@@ -25,7 +41,10 @@ SubsystemRecord processTable[MAX_SUBSYSTEMS];
 
 
 
-////// FUNCTIONS
+////// FUNCTIONS///////////////////
+
+////helpers ///
+
 uint64_t get_current_time_ms()
 {
     struct timespec time;
@@ -33,13 +52,18 @@ uint64_t get_current_time_ms()
     return (time.tv_sec * 1000) + (time.tv_nsec / 1000000);
 }
 
+
+/// health monitoring////
+
 void run_health_diagnostics()
 {
     uint64_t now = get_current_time_ms();
 
     printf("[WATCHDOG] Monitoring Subsystem Health.. \n");
 
-    return; //temp
+    return; //temp, still have to implement logic
+
+    /*
 
     for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
 
@@ -64,6 +88,7 @@ void run_health_diagnostics()
             }
         }
     }
+    */
 }
 
 void update_last_reported(int sys_id)
@@ -77,27 +102,45 @@ void update_last_reported(int sys_id)
     }
 }
 
+////////
+
+
+//// Subsystem Spawning
+
 // TODO make own function for spawning each subsystem
 
 
-void spawn_braking_system(char* pid_str, char* chid_str)
+int spawn_braking_system(char* pid_str, char* chid_str)
 {
     pid_t braking_pid = spawnl(P_NOWAIT, "./braking_system", "braking_system", "-p", pid_str, "-c", chid_str, NULL);
     usleep(50000);
 
-    if (braking_pid != -1) {
-        processTable[SYS_BRAKING].pid = braking_pid;
-        processTable[SYS_BRAKING].lastTimeReported = get_current_time_ms();
-        processTable[SYS_BRAKING].pingFrequencyMs = 50;
-        processTable[SYS_BRAKING].isAlive = 1;
-        int braking_coid = name_open("braking_system", 0);
-        if( braking_coid == -1)
-        		printf("[WATCHDOG]Unable to find COID CHID \n");
-        processTable[SYS_BRAKING].chid = braking_coid;
-        printf("[WATCHDOG] Braking System started. PID: %d\n", braking_pid);
-    }
+    if (braking_pid == -1)
+    	return -1;
+
+
+    //update process table with info
+	processTable[SYS_BRAKING].pid = braking_pid;
+	processTable[SYS_BRAKING].lastTimeReported = get_current_time_ms();
+	processTable[SYS_BRAKING].responseTime = SYS_BRAKING_RESPONSETIME_MS;
+	processTable[SYS_BRAKING].isAlive = 1;
+
+	int braking_coid = name_open("braking_system", 0);
+	if( braking_coid == -1){
+		printf("[WATCHDOG]Unable to find COID CHID \n");
+		processTable[SYS_BRAKING].isAlive = 0;
+		return -1;
+	}
+
+	processTable[SYS_BRAKING].chid = braking_coid;
+	printf("[WATCHDOG] Braking System started. PID: %d\n", braking_pid);
+	return 0;
+
+
+
 }
 
+//spawn all subsystems, send them relevant info so they can communicate with watchdog
 void beginSubsystems(int watchdog_chid)
 {
 	printf("[WATCHDOG] Spawning Subsystems.. \n");
@@ -106,18 +149,21 @@ void beginSubsystems(int watchdog_chid)
     sprintf(pid_str, "%d", my_pid);
     sprintf(chid_str, "%d", watchdog_chid);
 
-    spawn_braking_system(pid_str, chid_str);
+    if (spawn_braking_system(pid_str, chid_str) == -1)
+    	printf("[WATCHDOG] ERROR Spawning Braking System \n" );
+    // spawn all other subsystems
 }
+
 
 int main()
 {
-
+	printf("[WATCHDOG] Hello from Watchdog!");
     int watchdog_chid = ChannelCreate(0);
     int coid = ConnectAttach(ND_LOCAL_NODE, 0, watchdog_chid, _NTO_SIDE_CHANNEL, 0);
     printf("[WATCHDOG] CHID:%d, COID:%d   \n", watchdog_chid, coid);
 
 
-    //create signal to wake itseulf up
+    //create signal to wake itself up
     struct sigevent event;
     SIGEV_PULSE_INIT(&event, coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_WATCHDOG_AUDIT, 0);
     timer_t timer_id;
