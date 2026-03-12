@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "includes/defs.h"
 
 // Used to setup socket connection thus far
 // Might be more to come 
@@ -20,5 +20,6 @@ void setup(){
     dest.sin_family = AF_INET;
     dest.sin_port   = htons(SEND_PORT);
     inet_pton(AF_INET, DEST_IP, &dest.sin_addr);
+
 
 }

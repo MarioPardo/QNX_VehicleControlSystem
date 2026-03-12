@@ -1,50 +1,35 @@
-EXE = main
-COBJ = main.o client.o socket.o data_parser.o
-CC = gcc -Wall
-LIBS = -lpthread -lcjson
+# 1. Variables
+EXE      = main
+SRCDIR   = src
+OBJDIR   = obj
+CC       = qcc 
+PLATFORM = -Vgcc_ntoaarch64le
 
-all:	$(EXE)
+# Add -Isrc/include so we can find defs.h and cJSON.h
+CFLAGS   = -Wall -Isrc -Isrc/include
+LIBS     = -lsocket
 
-client: $(COBJ)
-	$(CC) -o client $(COBJ) $(LIBS)
+# 2. Tell make to look in 'src' for any .c files
+VPATH    = $(SRCDIR)
 
-client.o: client.c defs.h
-	$(CC) -c client.c
+# 3. List your objects
+_OBJS    = main.o client.o socket.o data_parser.o
+OBJS     = $(patsubst %,$(OBJDIR)/%,$(_OBJS))
 
+# 4. Rules
+all: $(OBJDIR) $(EXE)
 
-# connect: $(COBJ)
-# 	$(CC) -o connect $(COBJ) $(LIBS)
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
 
-# connect.o: connect.c defs.h
-# 	$(CC) -c connect.c
+$(EXE): $(OBJS)
+	$(CC) $(PLATFORM) -o $@ $^ $(LIBS)
 
-
-socket: $(COBJ)
-	$(CC) -o socket $(COBJ) $(LIBS)
-
-socket.o: socket.c defs.h
-	$(CC) -c socket.c
-
-
-data_parser: $(COBJ)
-	$(CC) -o data_parser $(COBJ) $(LIBS)
-
-data_parser.o: data_parser.c defs.h
-	$(CC) -c data_parser.c
-
-
-main: $(COBJ)
-	$(CC) -o main $(COBJ) $(LIBS)
-
-main.o: main.c defs.h
-	$(CC) -c main.c
-
-
+# Simpler rule: look for the .c file using VPATH
+$(OBJDIR)/%.o: %.c
+	$(CC) $(PLATFORM) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(EXE) $(COBJ)
+	rm -rf $(EXE) $(OBJDIR)
 
-clean:
-	rm -f $(EXE) $(SOBJ) $(COBJ)
-
-# DO NOT USE , NOT READY YET
+.PHONY: all clean clean

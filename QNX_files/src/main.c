@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "includes/defs.h"
 
 //Main
 
@@ -6,6 +6,9 @@ int sockfd;
 struct sockaddr_in dest;
 
 int main() {
+
+	printf("Starting Vehicle Control System");
+
     // setup socket
     setup();
 
@@ -19,5 +22,6 @@ int main() {
     pthread_join(send_thread, NULL);
 
     close(sockfd);
+
     return 0;
 }
