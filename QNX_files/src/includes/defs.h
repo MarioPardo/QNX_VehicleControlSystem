@@ -15,9 +15,12 @@
 #include <string.h>
 #include <pthread.h>
 
+#include <sys/neutrino.h>
+#include <sys/siginfo.h>
 
 
 
+//Networking
 #define LISTEN_PORT 5555
 #define SEND_PORT   5556
 #define DEST_IP     "127.0.0.1"
@@ -25,7 +28,15 @@
 extern int sockfd;
 extern struct sockaddr_in dest;
 
-void setup();
+void socket_setup();
 
 void* send_loop(void* arg);
 void* recv_loop(void* arg);
+
+
+//Pulse Codes
+typedef enum {
+    PULSE_WATCHDOG_AUDIT = _PULSE_CODE_MINAVAIL + 1,
+    PULSE_BRAKING_ALIVE,
+    PULSE_BRAKING_INTERNAL
+} SystemPulseCodes;
