@@ -3,7 +3,7 @@
 // Used to setup socket connection thus far
 // Might be more to come 
 
-void setup(){
+void socket_setup(){
     // setup socket
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 

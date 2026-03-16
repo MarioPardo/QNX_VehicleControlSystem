@@ -16,7 +16,7 @@ void* recv_loop(void* arg) {
         if(n < 0) continue;
 
         buffer[n] = '\0';
-        printf("[RECV] %s\n", buffer);
+       // printf("[RECV] %s\n", buffer);
 
         // later use json parsing function 
     }
@@ -38,7 +38,7 @@ void* send_loop(void* arg) {
         sendto(sockfd, payload, strlen(payload), 0,
                (struct sockaddr*)&dest, sizeof(dest));
 
-        printf("[SENT] %s\n", payload);
+        //printf("[SENT] %s\n", payload);
 
         seq++;
         sleep(1);
