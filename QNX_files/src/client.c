@@ -24,7 +24,8 @@ void* recv_loop(void* arg) {
     return NULL;
 }
 
-// Responsible for sendngi
+// Responsible for sending data over network
+// Load buffer to be sent over 
 void* send_loop(void* arg) {
     int seq = 0;
     char payload[256];

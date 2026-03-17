@@ -25,7 +25,7 @@
 
 //Networking
 #define LISTEN_PORT 5555
-#define SEND_PORT   5556
+#define SEND_PORT   5000
 #define DEST_IP     "127.0.0.1"
 
 extern int sockfd;

@@ -5,8 +5,8 @@ EXE_BRAKING  = braking_system
 
 SRCDIR   = src
 OBJDIR   = obj
-CC       = qcc 
-PLATFORM = -Vgcc_ntoaarch64le
+CC       = gcc 
+# PLATFORM = -Vgcc_ntoaarch64le
 
 # ADDED: -g and -O0 to LDFLAGS to ensure symbols survive the link stage
 # ADDED: -Werror-implicit-function-declaration to catch the source of your crashes

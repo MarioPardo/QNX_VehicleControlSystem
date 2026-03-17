@@ -40,7 +40,7 @@ char *packet_to_json(msg_packet *p) {
     cJSON *data = cJSON_CreateObject();
 
     cJSON_AddStringToObject(root, "subsys",   p->subsys);
-    cJSON_AddStringToObject(root, "msg_type", p->msg_type);
+    cJSON_AddStringToObject(root, "type", p->msg_type);
 
     //For now this is the types ive found but ill add macros so we can include more types later 
     // Id say lets work with this for now as it captures what we need before having more data
