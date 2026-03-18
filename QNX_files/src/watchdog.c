@@ -137,7 +137,7 @@ int spawn_subsystem(const char *path, const char *name,
     int retries = 10;
     while (coid == -1 && retries-- > 0) {
         coid = name_open(name, 0);
-        if (coid == -1) usleep(100000);  // 100ms retry
+        if (coid == -1) usleep(200000);  // 100ms retry
             }
 
     if (coid == -1) {
@@ -162,8 +162,8 @@ void beginSubsystems(int watchdog_chid) {
     //Ill just add processes here instead , will be easier to scale instead of create a subsystem function for each process
     // Other work we'd need to do in the process can just go in the respective file 
 
-    spawn_subsystem("./telemetry_system", "telemetry_system", SYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, pid_str, chid_str);
     spawn_subsystem("./braking_system",   "braking_system",   SYS_BRAKING,   SYS_BRAKING_RESPONSETIME_MS, pid_str, chid_str);
+    spawn_subsystem("./telemetry_system", "telemetry_system", SYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, pid_str, chid_str);
     spawn_subsystem("./client",           "client",           SYS_CLIENT,    SYS_CLIENT_RESPONSETIME_MS, pid_str, chid_str);
 }
 
