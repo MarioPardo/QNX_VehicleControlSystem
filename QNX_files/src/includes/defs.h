@@ -25,14 +25,15 @@
 
 
 //Networking
-#define LISTEN_PORT 6000
-#define SEND_PORT   5000
+#define LISTEN_PORT 5000
+#define SEND_PORT   6000
 
 // Local ip address
 
 #define DEST_IP     "127.0.0.1"
 
-// Rasp pi address
+//This is my IP : lol this has to be the worst practice ever lol
+
 
 //Telemetry aids
 
