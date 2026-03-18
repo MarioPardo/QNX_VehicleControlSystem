@@ -23,6 +23,7 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
         // route to correct process
         if (strcmp(p.msg_type, "BrakingInput") == 0) {
             MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
+            printf("[CLIENT] : Received braking data from Dashboard.")
         }
         // undo when implemented and done with testing
         // else if (strcmp(p.msg_type, "ThrottleInput") == 0) {
