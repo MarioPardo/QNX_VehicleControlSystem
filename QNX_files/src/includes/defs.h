@@ -66,7 +66,7 @@ void* recv_loop(void* arg);
 typedef enum {
     PULSE_WATCHDOG_AUDIT = _PULSE_CODE_MINAVAIL + 1,
     PULSE_BRAKING_ALIVE,
-    PULSE_BRAKING_INTERNAL
+    PULSE_BRAKING_INTERNAL,
     PULSE_TELEMETRY_INTERNAL,   // add
     PULSE_TELEMETRY_ALIVE,      // add
     PULSE_STEERING_ALIVE,       // add for future
