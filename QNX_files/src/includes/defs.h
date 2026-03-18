@@ -30,7 +30,7 @@
 
 // Local ip address
 
-#define DEST_IP     "127.0.0.1"
+#define DEST_IP     "192.168.56.126"
 
 //This is my IP : lol this has to be the worst practice ever lol
 
