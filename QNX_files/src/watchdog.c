@@ -111,7 +111,7 @@ void update_last_reported(int sys_id)
 
 //// Subsystem Spawning
 
-// Ok so I completely dettached this process so as to have one fucntion that can spawn all processes , will tweak this again in the future to make sure i can add priority. 
+// Ok so I completely dettached this process so as to have one function that can spawn all processes , will tweak this again in the future to make sure i can add priority. 
 
 int spawn_subsystem(const char *path, const char *name, 
                     int table_index, int response_time_ms,

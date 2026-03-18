@@ -25,6 +25,7 @@ void braking_system_setup_vehicleinfo(BrakingContext* context) {
     printf("[BRAKE SYSTEM] Info Setup Complete\n");
 }
 
+//Just demo calculation prob not final thing 
 void processBrakeInput(BrakingContext* context, int telemetry_coid) {
     // calculate
     context->currentSpeed -= 0.2f;  // natural deceleration
