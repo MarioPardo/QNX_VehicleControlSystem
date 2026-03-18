@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
     while (watchdog_coid == -1) {
         watchdog_coid = ConnectAttach(ND_LOCAL_NODE, watchdog_pid,
                                       watchdog_chid, _NTO_SIDE_CHANNEL, 0);
+        printf("[TELEMETRY] Waiting for Watchdog channel...\n");
         sleep(1);
     }
     printf("[TELEMETRY] Connected to watchdog\n");
@@ -52,12 +53,16 @@ int main(int argc, char *argv[]) {
 
 
     // For udp connection to python dashboard ( Might do sending here the n receiving elsewhere )
+    printf("[TELEMETRY] Setting up sender connection UDP \n");
     sender_setup();
+    printf("[TELEMETRY] DONE - connection UDP \n");
 
     // use attach's channel instead of creating new one
     int my_chid = ChannelCreate(0);
     int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, my_chid, _NTO_SIDE_CHANNEL, 0);
     
+    printf("[TELEMETRY SYSTEM] MyCHID: %d,  myCOID%d \n",my_chid, my_coid );
+
     // setup 100ms timer for sending telemetry
     struct sigevent event;
     SIGEV_PULSE_INIT(&event, my_coid, SIGEV_PULSE_PRIO_INHERIT,
@@ -72,17 +77,19 @@ int main(int argc, char *argv[]) {
 
     //Telemetry process wakes up every 100 ms to prep the data so far and send to dashboard
     printf("[TELEMETRY] Running\n");
-
+    
     // This is the main telemetry process function
     // main loop
     ProcessMsg msg;  // reuse for all incoming 
+    
+    struct _pulse pulse;
 
     while (1) {
-        int rcvid = MsgReceive(my_chid, &msg, sizeof(msg), NULL);
+        int rcvid = MsgReceive(my_chid, &pulse, sizeof(pulse), NULL);
 
         if (rcvid == 0) {
             // timer fired - package and send to Python //Going to fix this after testing  , promise the PULSEBAKING
-            if (((struct _pulse*)&msg)->code == PULSE_TELEMETRY_INTERNAL) {
+             if (pulse.code == PULSE_TELEMETRY_INTERNAL) {
 
                 // build telemetry packet to be sent to dashboard with data so far
                 telemetry_packet t;
