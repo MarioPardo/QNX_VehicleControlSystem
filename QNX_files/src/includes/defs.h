@@ -28,9 +28,9 @@
 #define LISTEN_PORT 5000
 #define SEND_PORT   6000
 
-// Local ip address
+// my ip address
 
-#define DEST_IP     "192.168.56.126"
+#define DEST_IP     "192.168.56.1"
 
 //This is my IP : lol this has to be the worst practice ever lol
 
