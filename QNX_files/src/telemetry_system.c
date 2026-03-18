@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     // register name so other subsystems can find us
     name_attach_t *attach = name_attach(NULL, "telemetry_system", 0);
     if (!attach) {
-        printf("[TELEMETRY] name_attach failed\n");
+        printf("[TELEMETRY] name_attach failed: %d \n",errno);
         return -1;
     }
     printf("[TELEMETRY] Registered as telemetry_system\n");
