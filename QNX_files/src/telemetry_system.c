@@ -31,7 +31,14 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "-p") == 0) watchdog_pid  = atoi(argv[++i]);
         if (strcmp(argv[i], "-c") == 0) watchdog_chid = atoi(argv[++i]);
     }
-
+    
+    // register name so other subsystems can find us
+    name_attach_t *attach = name_attach(NULL, "telemetry_system", 0);
+    if (!attach) {
+        printf("[TELEMETRY] name_attach failed\n");
+        return -1;
+    }
+    printf("[TELEMETRY] Registered as telemetry_system\n");
     // connect to watchdog
     int watchdog_coid = -1;
     while (watchdog_coid == -1) {
@@ -41,13 +48,6 @@ int main(int argc, char *argv[]) {
     }
     printf("[TELEMETRY] Connected to watchdog\n");
 
-    // register name so other subsystems can find us
-    name_attach_t *attach = name_attach(NULL, "telemetry_system", 0);
-    if (!attach) {
-        printf("[TELEMETRY] name_attach failed\n");
-        return -1;
-    }
-    printf("[TELEMETRY] Registered as telemetry_system\n");
 
     // For udp connection to python dashboard ( Might do sending here the n receiving elsewhere )
     sender_setup();
