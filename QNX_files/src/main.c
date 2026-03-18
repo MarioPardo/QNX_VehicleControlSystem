@@ -16,6 +16,7 @@ int main() {
     // pthread_create(&send_thread, NULL, send_loop, NULL);
 
     //spawn everything as a processes using watchdog 
+    // This is what im doing right now
 
     //spawn watchdog as process
 	printf("[MAIN] Spawning Watchdog Process...\n");
