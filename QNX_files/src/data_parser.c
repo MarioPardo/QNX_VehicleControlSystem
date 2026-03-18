@@ -15,7 +15,7 @@
 //  Data : ( This contains the message being parsed in could be the messages etc)
 
 
-// Harun - Will use this in other files to initialize struct - to ensure whatever isnt used ia auto set to default
+// Harun - Will use this in other files to initialize struct - to ensure whatever isnt used is auto set to default
 
 void packet_init(msg_packet *c)
 {
@@ -26,29 +26,20 @@ void packet_init(msg_packet *c)
     c->msg.enabled = 0;  // Evaluates to false
 }
 
-// i dont thik i need this , im assuming telemetry data will always be there 
-// // Harun - Will use to create telemetry packet type 
-// void telem_packet_init(telemetry_packet *t){
-
-
-// }
-
-
-// converts from  cstruct to json format
-char *packet_to_json(msg_packet *p) {
+// telemetry struct → JSON to send to Python
+char *telemetry_to_json(telemetry_packet *t) {
     cJSON *root = cJSON_CreateObject();
     cJSON *data = cJSON_CreateObject();
 
-    cJSON_AddStringToObject(root, "subsys",   p->subsys);
-    cJSON_AddStringToObject(root, "type", p->msg_type);
+    cJSON_AddStringToObject(root, "type",      t->type);
+    cJSON_AddNumberToObject(root, "timestamp", t->timestamp);
 
-    //For now this is the types ive found but ill add macros so we can include more types later 
-    // Id say lets work with this for now as it captures what we need before having more data
-    // Upgrde to fields to determine 
-
-    if (p->msg.percentage != -1) cJSON_AddNumberToObject(data, "Percentage", p->msg.percentage);
-    if (p->msg.angle      != -1) cJSON_AddNumberToObject(data, "Angle",      p->msg.angle);
-    cJSON_AddBoolToObject  (data, "Enabled",    p->msg.enabled);
+    cJSON_AddNumberToObject(data, "Speed",         t->tel.speed);
+    cJSON_AddNumberToObject(data, "Throttle",      t->tel.throttle);
+    cJSON_AddNumberToObject(data, "Brake",         t->tel.brake);
+    cJSON_AddNumberToObject(data, "SteeringAngle", t->tel.steering_angle);
+    cJSON_AddBoolToObject  (data, "SafeMode",      t->tel.safe_mode);
+    cJSON_AddBoolToObject  (data, "SnowMode",      t->tel.snow_mode);
 
     cJSON_AddItemToObject(root, "data", data);
     char *out = cJSON_PrintUnformatted(root);
@@ -56,13 +47,12 @@ char *packet_to_json(msg_packet *p) {
     return out;
 }
 
-//converts from json to struct
-void  json_to_packet(const char *json_str , telemetry_packet *t){
-    //Haruns- Based on what is being received from dashboard side ATM
-    
-    //Telemetry data
-   
-    memset(t, 0, sizeof(*t));  // zero everything safely to start
+// JSON from Python → msg_packet struct for routing in client
+void json_to_msg_packet(const char *json_str, msg_packet *p) {
+    memset(p, 0, sizeof(*p));
+    p->msg.percentage = -1.0;
+    p->msg.angle      = -1.0;
+    p->msg.enabled    = 0;
 
     cJSON *root = cJSON_Parse(json_str);
     if (!root) {
@@ -72,36 +62,22 @@ void  json_to_packet(const char *json_str , telemetry_packet *t){
 
     cJSON *type = cJSON_GetObjectItemCaseSensitive(root, "type");
     cJSON *data = cJSON_GetObjectItemCaseSensitive(root, "data");
-    cJSON *ts   = cJSON_GetObjectItemCaseSensitive(root, "timestamp");
 
     if (cJSON_IsString(type))
-        strncpy(t->type, type->valuestring, sizeof(t->type) - 1);
-
-    if (cJSON_IsNumber(ts))
-        t->timestamp = ts->valuedouble;
+        strncpy(p->msg_type, type->valuestring, sizeof(p->msg_type) - 1);
 
     if (cJSON_IsObject(data)) {
-        cJSON *speed    = cJSON_GetObjectItemCaseSensitive(data, "Speed");
-        cJSON *throttle = cJSON_GetObjectItemCaseSensitive(data, "Throttle");
-        cJSON *brake    = cJSON_GetObjectItemCaseSensitive(data, "Brake");
-        cJSON *steering = cJSON_GetObjectItemCaseSensitive(data, "SteeringAngle");
-        cJSON *safe     = cJSON_GetObjectItemCaseSensitive(data, "SafeMode");
-        cJSON *snow     = cJSON_GetObjectItemCaseSensitive(data, "SnowMode");
+        cJSON *percentage = cJSON_GetObjectItemCaseSensitive(data, "Percentage");
+        cJSON *angle      = cJSON_GetObjectItemCaseSensitive(data, "Angle");
+        cJSON *enabled    = cJSON_GetObjectItemCaseSensitive(data, "Enabled");
 
-        if (cJSON_IsNumber(speed))    t->tel.speed          = (float)speed->valuedouble;
-        if (cJSON_IsNumber(throttle)) t->tel.throttle        = (float)throttle->valuedouble;
-        if (cJSON_IsNumber(brake))    t->tel.brake           = (float)brake->valuedouble;
-        if (cJSON_IsNumber(steering)) t->tel.steering_angle  = (float)steering->valuedouble;
-        if (cJSON_IsBool(safe))       t->tel.safe_mode       = cJSON_IsTrue(safe);
-        if (cJSON_IsBool(snow))       t->tel.snow_mode       = cJSON_IsTrue(snow);
+        if (cJSON_IsNumber(percentage)) p->msg.percentage = percentage->valuedouble;
+        if (cJSON_IsNumber(angle))      p->msg.angle      = angle->valuedouble;
+        if (cJSON_IsBool(enabled))      p->msg.enabled    = cJSON_IsTrue(enabled);
     }
 
     cJSON_Delete(root);
-    
-
-
 }
-
 //Schema being used in ecu py side at the moment TBC 
 
 

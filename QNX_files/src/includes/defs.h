@@ -20,6 +20,7 @@
 
 #include <sys/neutrino.h>
 #include <sys/siginfo.h>
+#include <sys/dispatch.h>
 
 
 
@@ -28,10 +29,34 @@
 #define SEND_PORT   5000
 #define DEST_IP     "127.0.0.1"
 
+//Telemetry aids
+
+#define SUBSYS_BRAKE    0
+#define SUBSYS_THROTTLE 1
+#define SUBSYS_STEERING 2
+#define SUBSYS_TELEMETRY 3
+
+// define these first
+typedef struct { float speed; float brake_level; } BrakeUpdate;
+typedef struct { float value; } ThrottleUpdate;
+typedef struct { float angle; } SteeringUpdate;
+
+// NOW ProcessMsg works
+typedef struct {
+    int subsys;
+    union {
+        BrakeUpdate    brake;
+        ThrottleUpdate throttle;
+        SteeringUpdate steering;
+    } data;
+} ProcessMsg;
+
 extern int sockfd;
 extern struct sockaddr_in dest;
 
 void socket_setup();
+void receiver_setup();
+void sender_setup();
 
 void* send_loop(void* arg);
 void* recv_loop(void* arg);
@@ -42,6 +67,10 @@ typedef enum {
     PULSE_WATCHDOG_AUDIT = _PULSE_CODE_MINAVAIL + 1,
     PULSE_BRAKING_ALIVE,
     PULSE_BRAKING_INTERNAL
+    PULSE_TELEMETRY_INTERNAL,   // add
+    PULSE_TELEMETRY_ALIVE,      // add
+    PULSE_STEERING_ALIVE,       // add for future
+    PULSE_THROTTLE_ALIVE        // add for future
 } SystemPulseCodes;
 //Type defs / ill clean up once i get tests done 
 
@@ -84,8 +113,8 @@ typedef struct {
 
 
 void packet_init(msg_packet *c);
-char *packet_to_json(msg_packet *p);
-void json_to_packet(const char *json_str, telemetry_packet *t);
+char *telemetry_to_json(telemetry_packet *t);
+void json_to_msg_packet(const char *json_str, msg_packet *p);
 
 // -------------------------------------------------------------------------------------------------------
 

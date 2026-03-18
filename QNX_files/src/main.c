@@ -9,14 +9,13 @@ int main() {
 
 	printf("Starting Vehicle Control System");
 
-    // setup socket
-    socket_setup();
 
     // launch networking threads
-    pthread_t recv_thread, send_thread; 
-    pthread_create(&recv_thread, NULL, recv_loop, NULL);
-    pthread_create(&send_thread, NULL, send_loop, NULL);
+    // pthread_t recv_thread, send_thread; 
+    // pthread_create(&recv_thread, NULL, recv_loop, NULL);
+    // pthread_create(&send_thread, NULL, send_loop, NULL);
 
+    //spawn everything as a processes using watchdog 
 
     //spawn watchdog as process
 	printf("[MAIN] Spawning Watchdog Process...\n");
@@ -27,11 +26,13 @@ int main() {
 		return -1;
 	}
 
-    // keep main alive
-    pthread_join(recv_thread, NULL);
-    pthread_join(send_thread, NULL);
 
-    close(sockfd);
+
+    // // keep main alive
+    // pthread_join(recv_thread, NULL);
+    // pthread_join(send_thread, NULL);
+
+    // close(sockfd);
 
     return 0;
 }

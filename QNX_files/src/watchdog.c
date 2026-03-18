@@ -9,7 +9,7 @@
 
 
 
-//
+// Just added some stuff to measure for now , telemetry and client
 
 
 //Subsystem info
@@ -17,9 +17,13 @@
 
 	//index for each system in table
 #define SYS_BRAKING 0
+#define SYS_TELEMETRY 1
+#define SYS_CLIENT 2
 
 	//response times : how often we expect them to check in
 #define SYS_BRAKING_RESPONSETIME_MS 500
+#define SYS_CLIENT_RESPONSETIME_MS 1000
+#define SYS_TELEMETRY_RESPONSETIME_MS 10000
 
 	//critical times : how many MS since last check in such that we kill and restart process
 #define SYS_BRAKING_CRITICALTIME_MS 3000
@@ -107,57 +111,66 @@ void update_last_reported(int sys_id)
 
 //// Subsystem Spawning
 
-// TODO make own function for spawning each subsystem
+// Ok so I completely dettached this process so as to have one fucntion that can spawn all processes , will tweak this again in the future to make sure i can add priority. 
 
-
-int spawn_braking_system(char* pid_str, char* chid_str)
-{
-    pid_t braking_pid = spawnl(P_NOWAIT, "./braking_system", "braking_system", "-p", pid_str, "-c", chid_str, NULL);
+int spawn_subsystem(const char *path, const char *name, 
+                    int table_index, int response_time_ms,
+                    char *pid_str, char *chid_str) {
+    
+    pid_t pid = spawnl(P_NOWAIT, path, name,
+                       "-p", pid_str, "-c", chid_str, NULL);
     usleep(50000);
 
-    if (braking_pid == -1)
-    	return -1;
+    if (pid == -1) {
+        printf("[WATCHDOG] ERROR spawning %s\n", name);
+        return -1;
+    }
 
+    // update process table
+    processTable[table_index].pid              = pid;
+    processTable[table_index].lastTimeReported = get_current_time_ms();
+    processTable[table_index].responseTime     = response_time_ms;
+    processTable[table_index].isAlive          = 1;
 
-    //update process table with info
-	processTable[SYS_BRAKING].pid = braking_pid;
-	processTable[SYS_BRAKING].lastTimeReported = get_current_time_ms();
-	processTable[SYS_BRAKING].responseTime = SYS_BRAKING_RESPONSETIME_MS;
-	processTable[SYS_BRAKING].isAlive = 1;
+    // find its channel
+    int coid = -1;
+    int retries = 10;
+    while (coid == -1 && retries-- > 0) {
+        coid = name_open(name, 0);
+        if (coid == -1) usleep(100000);  // 100ms retry
+            }
 
-	int braking_coid = name_open("braking_system", 0);
-	if( braking_coid == -1){
-		printf("[WATCHDOG]Unable to find COID CHID \n");
-		processTable[SYS_BRAKING].isAlive = 0;
-		return -1;
-	}
+    if (coid == -1) {
+        printf("[WATCHDOG] Unable to find %s channel\n", name);
+        processTable[table_index].isAlive = 0;
+        return -1;
+    }
 
-	processTable[SYS_BRAKING].chid = braking_coid;
-	printf("[WATCHDOG] Braking System started. PID: %d\n", braking_pid);
-	return 0;
-
-
-
+    processTable[table_index].chid = coid;
+    printf("[WATCHDOG] %s started. PID: %d\n", name, pid);
+    return 0;
 }
 
 //spawn all subsystems, send them relevant info so they can communicate with watchdog
-void beginSubsystems(int watchdog_chid)
-{
-	printf("[WATCHDOG] Spawning Subsystems.. \n");
+void beginSubsystems(int watchdog_chid) {
+    printf("[WATCHDOG] Spawning Subsystems...\n");
     pid_t my_pid = getpid();
     char pid_str[16], chid_str[16];
-    sprintf(pid_str, "%d", my_pid);
+    sprintf(pid_str,  "%d", my_pid);
     sprintf(chid_str, "%d", watchdog_chid);
 
-    if (spawn_braking_system(pid_str, chid_str) == -1)
-    	printf("[WATCHDOG] ERROR Spawning Braking System \n" );
-    // spawn all other subsystems
+    //Ill just add processes here instead , will be easier to scale instead of create a subsystem function for each process
+    // Other work we'd need to do in the process can just go in the respective file 
+
+    spawn_subsystem("./telemetry_system", "telemetry_system", SYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, pid_str, chid_str);
+    spawn_subsystem("./braking_system",   "braking_system",   SYS_BRAKING,   SYS_BRAKING_RESPONSETIME_MS, pid_str, chid_str);
+    spawn_subsystem("./client",           "client",           SYS_CLIENT,    SYS_CLIENT_RESPONSETIME_MS, pid_str, chid_str);
 }
 
 
 int main()
 {
-	printf("[WATCHDOG] Hello from Watchdog!");
+	printf("[WATCHDOG] Hello from Watchdog!\n");
     int watchdog_chid = ChannelCreate(0);
     int coid = ConnectAttach(ND_LOCAL_NODE, 0, watchdog_chid, _NTO_SIDE_CHANNEL, 0);
     printf("[WATCHDOG] CHID:%d, COID:%d   \n", watchdog_chid, coid);
@@ -190,6 +203,9 @@ int main()
                     break;
                 case PULSE_BRAKING_ALIVE:
                     update_last_reported(SYS_BRAKING);
+                    break;
+                case PULSE_TELEMETRY_ALIVE:
+                    update_last_reported(SYS_TELEMETRY);
                     break;
             }
         }
