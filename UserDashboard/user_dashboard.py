@@ -11,6 +11,11 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
+# Just adding a variable for IP adress to make it easier for testing , promise i didnt touch anything else
+
+# rasppi address will be different 
+
+IP = "127.0.0.1"
 
 class Dashboard(QWidget):
 
@@ -26,8 +31,8 @@ class Dashboard(QWidget):
 
         # UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("127.0.0.1", 6000))
-        self.server_address = ("127.0.0.1", 5000)
+        self.sock.bind((IP, 6000))
+        self.server_address = (IP, 5000)
 
         self.last_packet_time = time.time()
 

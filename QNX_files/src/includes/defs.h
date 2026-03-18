@@ -25,9 +25,14 @@
 
 
 //Networking
-#define LISTEN_PORT 5555
+#define LISTEN_PORT 6000
 #define SEND_PORT   5000
+
+// Local ip address
+
 #define DEST_IP     "127.0.0.1"
+
+// Rasp pi address
 
 //Telemetry aids
 
