@@ -8,7 +8,12 @@ EXE_CLIENT    = client
 SRCDIR   = src
 OBJDIR   = obj
 CC       = qcc 
-PLATFORM = -Vgcc_ntoaarch64le
+
+# For pi platform
+# PLATFORM = -Vgcc_ntoaarch64le
+
+# for testing on VM might be useful x86 VM
+PLATFORM = -Vgcc_ntox86_64
 
 # ADDED: -g and -O0 to LDFLAGS to ensure symbols survive the link stage
 # ADDED: -Werror-implicit-function-declaration to catch the source of your crashes
