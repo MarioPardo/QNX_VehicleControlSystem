@@ -1,8 +1,13 @@
 #include "includes/defs.h"
 
+
 // client.c
 // Will change back to this , rn just testing it 
 // void *receiveFromDashboard(int sockfd, int brake_coid, int throttle_coid, int steering_coid) {
+
+int sockfd;
+struct sockaddr_in dest;
+
 void receiveFromDashboard(int sockfd, int brake_coid) {
     char buffer[1024];
     

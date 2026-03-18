@@ -13,6 +13,9 @@ typedef struct {
     bool absActive;
 } BrakingContext;
 
+int sockfd;
+struct sockaddr_in dest;
+
 void braking_system_setup_vehicleinfo(BrakingContext* context) {
     // TODO handle setup when process has crashed/been stopped
     // (e.g., check command line flags to see if this is a respawn)

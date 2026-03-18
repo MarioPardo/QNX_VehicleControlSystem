@@ -16,6 +16,8 @@
 // telemetry.c
 #include "includes/defs.h"
 
+int sockfd;
+struct sockaddr_in dest;
 
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");

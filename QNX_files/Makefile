@@ -20,7 +20,7 @@ LIBS_MAIN = -lsocket -lm
 VPATH    = $(SRCDIR)
 
 # 3. List your objects per executable
-_OBJS_MAIN = main.o client.o socket.o data_parser.o cJSON.o
+_OBJS_MAIN = main.o 
 OBJS_MAIN  = $(patsubst %,$(OBJDIR)/%,$(_OBJS_MAIN))
 
 _OBJS_WD   = watchdog.o
