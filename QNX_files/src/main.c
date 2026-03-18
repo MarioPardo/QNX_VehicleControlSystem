@@ -26,7 +26,9 @@ int main() {
 		perror("[MAIN] Failed to spawn Watchdog");
 		return -1;
 	}
+    //Give abit of time before closing main
 
+    waitpid(watchdog_pid, NULL, 0);
 
 
     // // keep main alive
