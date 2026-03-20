@@ -13,6 +13,22 @@ int respawn_subsystem(int subsystemIndex);
 //Subsystem info
 #define MAX_SUBSYSTEMS 10
 
+	//index for each system in table
+#define SYS_BRAKING 0
+#define SYS_TELEMETRY 1
+#define SYS_CLIENT 2
+
+	//response times : how often we expect them to check in
+#define SYS_BRAKING_RESPONSETIME_MS 500 
+#define SYS_CLIENT_RESPONSETIME_MS 1000
+#define SYS_TELEMETRY_RESPONSETIME_MS 10000
+
+	//critical times : how many MS since last check in such that we kill and restart process
+#define SYS_BRAKING_CRITICALTIME_MS 3000
+
+
+
+
 //table storing subsystem info
 typedef struct {
     pid_t pid;
@@ -28,6 +44,21 @@ typedef struct {
 
 SubsystemRecord processTable[MAX_SUBSYSTEMS];
 
+
+
+////// FUNCTIONS///////////////////
+
+void watchdog_shutdown(int signo)
+{
+    printf("[WATCHDOG] Shutting down (signal %d), killing subsystems...\n", signo);
+    for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
+        if (processTable[i].isAlive && processTable[i].pid > 0) {
+            printf("[WATCHDOG] Killing PID %d\n", processTable[i].pid);
+            kill(processTable[i].pid, SIGTERM);
+        }
+    }
+    exit(0);
+}
 
 ////helpers ///
 
@@ -85,7 +116,8 @@ int spawn_subsystem(const char *path, const char *name,
 
     //TODO remove extra subsystemName param
 
-    printf("[WATCHDOG]   -- Spawning %s\n", subsystemName);
+int spawn_subsystem(const char *path, const char *name,
+                    int table_index, int response_time_ms) {
 
     pid_t pid = spawnl(P_NOWAIT, path, name, NULL);
     usleep(50000);
@@ -211,6 +243,13 @@ void beginSubsystems() {
 int main()
 {
 	printf("[WATCHDOG] Hello from Watchdog!\n");
+    name_attach_t *attach = name_attach(NULL, "watchdog", 0);
+    if (!attach) {
+        printf("[WATCHDOG] name_attach failed: %d (stale instance may be running - run 'slay watchdog telemetry_system braking_system client')\n", errno);
+        return -1;
+    }
+    int coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
+    printf("[WATCHDOG] CHID:%d, COID:%d   \n", attach->chid, coid);
 
     //  
     memset(processTable, 0, sizeof(processTable));
@@ -231,6 +270,9 @@ int main()
     signal(SIGTERM, watchdog_shutdown);
     signal(SIGINT,  watchdog_shutdown);
     signal(SIGCHLD, on_child_exit);
+
+    signal(SIGTERM, watchdog_shutdown);
+    signal(SIGINT,  watchdog_shutdown);
 
     //create signal to wake itself up
     struct sigevent event;
