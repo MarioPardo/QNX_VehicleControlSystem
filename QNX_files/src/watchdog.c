@@ -21,7 +21,7 @@
 #define SYS_CLIENT 2
 
 	//response times : how often we expect them to check in
-#define SYS_BRAKING_RESPONSETIME_MS 500
+#define SYS_BRAKING_RESPONSETIME_MS 500 
 #define SYS_CLIENT_RESPONSETIME_MS 1000
 #define SYS_TELEMETRY_RESPONSETIME_MS 10000
 
@@ -46,6 +46,18 @@ SubsystemRecord processTable[MAX_SUBSYSTEMS];
 
 
 ////// FUNCTIONS///////////////////
+
+void watchdog_shutdown(int signo)
+{
+    printf("[WATCHDOG] Shutting down (signal %d), killing subsystems...\n", signo);
+    for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
+        if (processTable[i].isAlive && processTable[i].pid > 0) {
+            printf("[WATCHDOG] Killing PID %d\n", processTable[i].pid);
+            kill(processTable[i].pid, SIGTERM);
+        }
+    }
+    exit(0);
+}
 
 ////helpers ///
 
@@ -113,12 +125,10 @@ void update_last_reported(int sys_id)
 
 // Ok so I completely dettached this process so as to have one function that can spawn all processes , will tweak this again in the future to make sure i can add priority. 
 
-int spawn_subsystem(const char *path, const char *name, 
-                    int table_index, int response_time_ms,
-                    char *pid_str, char *chid_str) {
-    
-    pid_t pid = spawnl(P_NOWAIT, path, name,
-                       "-p", pid_str, "-c", chid_str, NULL);
+int spawn_subsystem(const char *path, const char *name,
+                    int table_index, int response_time_ms) {
+
+    pid_t pid = spawnl(P_NOWAIT, path, name, NULL);
     usleep(50000);
 
     if (pid == -1) {
@@ -152,29 +162,32 @@ int spawn_subsystem(const char *path, const char *name,
 }
 
 //spawn all subsystems, send them relevant info so they can communicate with watchdog
-void beginSubsystems(int watchdog_chid) {
+void beginSubsystems() {
     printf("[WATCHDOG] Spawning Subsystems...\n");
-    pid_t my_pid = getpid();
-    char pid_str[16], chid_str[16];
-    sprintf(pid_str,  "%d", my_pid);
-    sprintf(chid_str, "%d", watchdog_chid);
 
-    //Ill just add processes here instead , will be easier to scale instead of create a subsystem function for each process
-    // Other work we'd need to do in the process can just go in the respective file 
-
-    spawn_subsystem("./telemetry_system", "telemetry_system", SYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, pid_str, chid_str);
-    spawn_subsystem("./braking_system",   "braking_system",   SYS_BRAKING,   SYS_BRAKING_RESPONSETIME_MS, pid_str, chid_str);
-    spawn_subsystem("./client",           "client",           SYS_CLIENT,    SYS_CLIENT_RESPONSETIME_MS, pid_str, chid_str);
+    printf("[WATCHDOG]  -- Spawning Telemetry\n");
+    spawn_subsystem("./telemetry_system", "telemetry_system", SYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS);
+    printf("[WATCHDOG]  -- Spawning Braking\n");
+    spawn_subsystem("./braking_system",   "braking_system",   SYS_BRAKING,   SYS_BRAKING_RESPONSETIME_MS);
+    printf("[WATCHDOG]  -- Spawning Client\n");
+    spawn_subsystem("./client",           "client",           SYS_CLIENT,    SYS_CLIENT_RESPONSETIME_MS);
 }
 
 
 int main()
 {
 	printf("[WATCHDOG] Hello from Watchdog!\n");
-    int watchdog_chid = ChannelCreate(0);
-    int coid = ConnectAttach(ND_LOCAL_NODE, 0, watchdog_chid, _NTO_SIDE_CHANNEL, 0);
-    printf("[WATCHDOG] CHID:%d, COID:%d   \n", watchdog_chid, coid);
+    name_attach_t *attach = name_attach(NULL, "watchdog", 0);
+    if (!attach) {
+        printf("[WATCHDOG] name_attach failed: %d (stale instance may be running - run 'slay watchdog telemetry_system braking_system client')\n", errno);
+        return -1;
+    }
+    int coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
+    printf("[WATCHDOG] CHID:%d, COID:%d   \n", attach->chid, coid);
 
+
+    signal(SIGTERM, watchdog_shutdown);
+    signal(SIGINT,  watchdog_shutdown);
 
     //create signal to wake itself up
     struct sigevent event;
@@ -183,18 +196,18 @@ int main()
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
     struct itimerspec itime;
     itime.it_value.tv_sec = 0;
-    itime.it_value.tv_nsec = 50000000; // 50ms audit cycle
+    itime.it_value.tv_nsec = 50000000 * 10; // 50ms audit cycle * 10 so its 500ms for debugging
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
 
-    beginSubsystems(watchdog_chid);
+    beginSubsystems();
 
     struct _pulse pulse;
     printf("[WATCHDOG] Monitoring active...\n");
 
     while (1) {
-        int rcvid = MsgReceive(watchdog_chid, &pulse, sizeof(pulse), NULL);
+        int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
         if (rcvid == 0) {
             switch (pulse.code) {

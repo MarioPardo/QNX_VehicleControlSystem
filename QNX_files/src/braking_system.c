@@ -80,25 +80,16 @@ int main(int argc, char *argv[])
 	BrakingContext state;
     braking_system_setup_vehicleinfo(&state);
 
-    //get watchdog info
-    int watchdog_pid = -1, watchdog_chid = -1;
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-p") == 0) watchdog_pid = atoi(argv[++i]);
-        if (strcmp(argv[i], "-c") == 0) watchdog_chid = atoi(argv[++i]);
-    }
-
-    //TODO refactor below into function
-
-    //create channels and connect
+    // connect to watchdog by name
     int watchdog_coid = -1;
     while (watchdog_coid == -1) {
-        watchdog_coid = ConnectAttach(ND_LOCAL_NODE, watchdog_pid, watchdog_chid, _NTO_SIDE_CHANNEL, 0);
+        watchdog_coid = name_open("watchdog", 0);
         if (watchdog_coid == -1) {
-            printf("[BRAKE] Waiting for Watchdog channel...\n");
+            printf("[BRAKE] Waiting for Watchdog...\n");
             sleep(1);
         }
     }
-    printf("[BRAKE SYSTEM] Connected to Watchdog ");
+    printf("[BRAKE SYSTEM] Connected to Watchdog\n");
 
     // register so other subsystems can find us
     name_attach_t *attach = name_attach(NULL, "braking_system", 0);
@@ -120,12 +111,8 @@ int main(int argc, char *argv[])
     }
     printf("[BRAKE] Connected to telemetry\n");
 
-    //Creating own channel to begin with
-
-    int my_chid = ChannelCreate(0);
-    int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, my_chid, _NTO_SIDE_CHANNEL, 0);
-
-    printf("[BRAKE SYSTEM] MyCHID: %d,  myCOID%d \n",my_chid, my_coid );
+    // connect to own channel for timer pulses
+    int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
 
     //Initialize own timer so process wakes up as needed
     struct sigevent event;
@@ -135,7 +122,7 @@ int main(int argc, char *argv[])
 
     struct itimerspec itime;
     itime.it_value.tv_sec = 0;
-    itime.it_value.tv_nsec = 20000000; // 20ms execution cycle TODO make var
+    itime.it_value.tv_nsec = 20000000 * 10; // 20ms execution cycle * 100 for debug TODO make var
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
@@ -143,7 +130,7 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        int rcvid = MsgReceive(my_chid, &pulse, sizeof(pulse), NULL);
+        int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
         if (rcvid == 0) {
             if (pulse.code == PULSE_BRAKING_INTERNAL)

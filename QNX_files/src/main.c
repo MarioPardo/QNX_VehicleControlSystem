@@ -5,22 +5,29 @@
 int sockfd;
 struct sockaddr_in dest;
 
+pid_t watchdog_pid = -1;
+
+void main_shutdown(int signo) {
+    if (watchdog_pid > 0) {
+        printf("[MAIN] Forwarding shutdown to watchdog (PID %d)...\n", watchdog_pid);
+        kill(watchdog_pid, SIGTERM);
+    }
+    exit(0);
+}
+
 int main() {
 
 	printf("Starting Vehicle Control System");
 
+    signal(SIGTERM, main_shutdown);
+    signal(SIGINT,  main_shutdown);
 
-    // launch networking threads
-    // pthread_t recv_thread, send_thread; 
-    // pthread_create(&recv_thread, NULL, recv_loop, NULL);
-    // pthread_create(&send_thread, NULL, send_loop, NULL);
-
-    //spawn everything as a processes using watchdog 
+    //spawn everything as a processes using watchdog
     // This is what im doing right now
 
     //spawn watchdog as process
 	printf("[MAIN] Spawning Watchdog Process...\n");
-	pid_t watchdog_pid = spawnl(P_NOWAIT, "./watchdog", "watchdog", NULL);
+	watchdog_pid = spawnl(P_NOWAIT, "./watchdog", "watchdog", NULL);
 
 	if (watchdog_pid == -1) {
 		perror("[MAIN] Failed to spawn Watchdog");
