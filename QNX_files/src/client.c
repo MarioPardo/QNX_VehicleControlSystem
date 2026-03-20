@@ -30,6 +30,7 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
         msg_packet p;
         json_to_msg_packet(buffer, &p);
 
+        //These are the controls that the dashboard is sending 
         // route to correct process
 
 
@@ -41,13 +42,25 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
             else
                 printf("[CLIENT] : Received braking data from Dashboard.");
         }
-        // undo when implemented and done with testing
-        // else if (strcmp(p.msg_type, "ThrottleInput") == 0) {
+        // else if (strcmp(p.msg_type, "ThrottleInput") == 0)
+        // {
+            
         //     MsgSend(throttle_coid, &p.msg, sizeof(p.msg), NULL, 0);
+        //     printf("[CLIENT] : Received throttle data from Dashboard.")
         // }
-        // else if (strcmp(p.msg_type, "SteeringInput") == 0) {
+        // else if (strcmp(p.msg_type, "SteeringInput") == 0)
+        // {
+            
         //     MsgSend(steering_coid, &p.msg, sizeof(p.msg), NULL, 0);
+        //     printf("[CLIENT] : Received steering data from Dashboard.")
         // }
+        // else if (strcmp(p.msg_type, "Heartbeat") == 0)
+        // { 
+        // //    TBD
+        //     printf("[CLIENT] : Received Heartbeat data from Dashboard.")
+        // }
+
+        
     }
 }
 
