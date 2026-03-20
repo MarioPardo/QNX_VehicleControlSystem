@@ -85,11 +85,14 @@ int main(int argc, char *argv[]) {
                 // build telemetry packet to be sent to dashboard with data so far
                 telemetry_packet t;
                 memset(&t, 0, sizeof(t));
+
+                // This is what python is expecting in the process_packet function
+
                 strcpy(t.type, "VehicleTelemetry");
                 t.tel.speed          = state.speed;
-                t.tel.throttle       = state.throttle;
-                t.tel.brake          = state.brake;
-                t.tel.steering_angle = state.steering_angle;
+                // t.tel.throttle       = state.throttle;
+                // t.tel.brake          = state.brake;
+                // t.tel.steering_angle = state.steering_angle;
                 t.tel.safe_mode      = state.safe_mode;
                 t.tel.snow_mode      = state.snow_mode;
                 t.timestamp          = (float)time(NULL);
