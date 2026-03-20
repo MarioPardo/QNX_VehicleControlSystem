@@ -74,8 +74,13 @@ int main(int argc, char *argv[]) {
     timer_t timer_id;
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
     struct itimerspec itime;
+<<<<<<< HEAD
     itime.it_value.tv_sec  = SYS_TELEMETRY_RESPONSETIME_MS / 1000;
     itime.it_value.tv_nsec = (SYS_TELEMETRY_RESPONSETIME_MS % 1000) * 1000000;
+=======
+    itime.it_value.tv_sec  = 1;               // 1 second cycle (debug)
+    itime.it_value.tv_nsec = 0;
+>>>>>>> 3704104 (all systems being spawned, checking in, and being cleaned up correctly)
     itime.it_interval      = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 

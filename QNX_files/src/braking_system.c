@@ -206,6 +206,19 @@ int main(int argc, char *argv[])
 	BrakingContext brakeContext;
     braking_system_setup_vehicleinfo(&brakeContext);
 
+<<<<<<< HEAD
+=======
+    // connect to watchdog by name
+    int watchdog_coid = -1;
+    while (watchdog_coid == -1) {
+        watchdog_coid = name_open("watchdog", 0);
+        if (watchdog_coid == -1) {
+            printf("[BRAKE] Waiting for Watchdog...\n");
+            sleep(1);
+        }
+    }
+    printf("[BRAKE SYSTEM] Connected to Watchdog\n");
+>>>>>>> 3704104 (all systems being spawned, checking in, and being cleaned up correctly)
 
     // register so other subsystems can find us
     attach = name_attach(NULL, "braking_system", 0);
@@ -242,8 +255,13 @@ int main(int argc, char *argv[])
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
 
     struct itimerspec itime;
+<<<<<<< HEAD
     itime.it_value.tv_sec = SYS_BRAKING_RESPONSETIME_MS / 1000;
     itime.it_value.tv_nsec = (SYS_BRAKING_RESPONSETIME_MS % 1000) * 1000000;
+=======
+    itime.it_value.tv_sec = 0;
+    itime.it_value.tv_nsec = 20000000 * 10; // 20ms execution cycle * 100 for debug TODO make var
+>>>>>>> 3704104 (all systems being spawned, checking in, and being cleaned up correctly)
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 

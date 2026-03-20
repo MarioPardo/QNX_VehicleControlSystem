@@ -32,6 +32,7 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
 
         //These are the controls that the dashboard is sending 
         // route to correct process
+<<<<<<< HEAD
 
 
         if (strcmp(p.msg_type, "BrakingInput") == 0) 
@@ -41,6 +42,14 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
                 printf("[CLIENT] : Failed to send braking data to braking_system.");
             else
                 printf("[CLIENT] : Received braking data from Dashboard.");
+=======
+        if (strcmp(p.msg_type, "BrakingInput") == 0) {
+            
+            //From here then on send the data to appropriate processes , braking etc 
+            
+            MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
+            printf("[CLIENT] : Received braking data from Dashboard.");
+>>>>>>> 3704104 (all systems being spawned, checking in, and being cleaned up correctly)
         }
         // else if (strcmp(p.msg_type, "ThrottleInput") == 0)
         // {
