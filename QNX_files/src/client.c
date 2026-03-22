@@ -21,9 +21,15 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
         json_to_msg_packet(buffer, &p);
 
         // route to correct process
-        if (strcmp(p.msg_type, "BrakingInput") == 0) {
-            MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
-            printf("[CLIENT] : Received braking data from Dashboard.");
+
+
+        if (strcmp(p.msg_type, "BrakingInput") == 0) 
+        {
+            int ret = MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
+            if (ret < 0)
+                printf("[CLIENT] : Failed to send braking data to braking_system.");
+            else
+                printf("[CLIENT] : Received braking data from Dashboard.");
         }
         // undo when implemented and done with testing
         // else if (strcmp(p.msg_type, "ThrottleInput") == 0) {
@@ -85,6 +91,8 @@ void* send_loop(void* arg) {
 
     return NULL;
 }
+
+//TODO if client is a process it must start checking in with watchdog
 
 // ------------------------------------------------------------------------------------------------------------------------
 

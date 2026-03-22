@@ -9,36 +9,18 @@
 
 
 
-// Just added some stuff to measure for now , telemetry and client
-
-
 //Subsystem info
 #define MAX_SUBSYSTEMS 10
-
-	//index for each system in table
-#define SYS_BRAKING 0
-#define SYS_TELEMETRY 1
-#define SYS_CLIENT 2
-
-	//response times : how often we expect them to check in
-#define SYS_BRAKING_RESPONSETIME_MS 500 
-#define SYS_CLIENT_RESPONSETIME_MS 1000
-#define SYS_TELEMETRY_RESPONSETIME_MS 10000
-
-	//critical times : how many MS since last check in such that we kill and restart process
-#define SYS_BRAKING_CRITICALTIME_MS 3000
-
-
-
 
 //table storing subsystem info
 typedef struct {
     pid_t pid;
     uint64_t lastTimeReported;
-    int responseTime;
+    int responseTime; //ms 
+    int criticalTime; //ms
     int isAlive;
     int chid;
-    //TODO add string to store subsystem name
+    char* subsystemName;
 } SubsystemRecord;
 
 SubsystemRecord processTable[MAX_SUBSYSTEMS];
@@ -77,39 +59,39 @@ void run_health_diagnostics()
 
     printf("[WATCHDOG] Monitoring Subsystem Health.. \n");
 
-    return; //temp, still have to implement logic
 
-    /*
+    for (int i = 0; i < MAX_SUBSYSTEMS; i++) 
+    {
 
-    for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
-
-        if (processTable[i].isAlive) {
+        if (processTable[i].isAlive) 
+        {
             uint64_t timeSinceLastReport = now - processTable[i].lastTimeReported;
 
             //if last time they responded falls within threshold -OK
-            if (timeSinceLastReport <= processTable[i].pingFrequencyMs)
+            if (timeSinceLastReport <= processTable[i].responseTime)
             {
+                printf("[WATCHDOG] Subsystem %s is healthy.\n", processTable[i].subsystemName);
                 continue;
-            }
-            // if not, check if it sits within warning threshhold
-            else if (timeSinceLastReport <= (processTable[i].pingFrequencyMs * 2)) //TODO set up proper warning threshold
+            } 
+            // if missed heartbeat
+            else if ( (timeSinceLastReport >= (processTable[i].responseTime)) &&  timeSinceLastReport < processTable[i].criticalTime)
             {
-                printf("[WATCHDOG] WARNING: Subsystem %d missed a heartbeat.\n", i);
+                printf("[WATCHDOG] WARNING: Subsystem %s missed a heartbeat. MONITORING.\n", processTable[i].subsystemName);
             }
 
-            else {// if critical, restart process
-                printf("[WATCHDOG] CRITICAL: Subsystem %d failed. Executing PID %d\n", i, processTable[i].pid);
+            else  { //critical
+                printf("[WATCHDOG] CRITICAL: Subsystem %s failed. KILLING PID %d\n", processTable[i].subsystemName, processTable[i].pid);
                 // kill(processTable[i].pid, SIGKILL);
                 // Trigger respawn logic here
             }
         }
     }
-    */
+
 }
 
 void update_last_reported(int sys_id)
 {
-	printf("[WATCHDOG] SysID:%d  has checked in! \n", sys_id);
+	printf("[WATCHDOG] Subsystem [%d]:%s  has checked in! \n", sys_id, processTable[sys_id].subsystemName);
 
 	//update corresponding system's health
     if (sys_id >= 0 && sys_id < MAX_SUBSYSTEMS)
@@ -122,11 +104,10 @@ void update_last_reported(int sys_id)
 
 
 //// Subsystem Spawning
-
-// Ok so I completely dettached this process so as to have one function that can spawn all processes , will tweak this again in the future to make sure i can add priority. 
-
 int spawn_subsystem(const char *path, const char *name,
-                    int table_index, int response_time_ms) {
+                    int table_index, int response_time_ms, char* subsystemName) {
+
+    printf("[WATCHDOG]  -- %s\n", subsystemName);
 
     pid_t pid = spawnl(P_NOWAIT, path, name, NULL);
     usleep(50000);
@@ -141,6 +122,7 @@ int spawn_subsystem(const char *path, const char *name,
     processTable[table_index].lastTimeReported = get_current_time_ms();
     processTable[table_index].responseTime     = response_time_ms;
     processTable[table_index].isAlive          = 1;
+    processTable[table_index].subsystemName    = strdup(subsystemName);
 
     // find its channel
     int coid = -1;
@@ -163,14 +145,20 @@ int spawn_subsystem(const char *path, const char *name,
 
 //spawn all subsystems, send them relevant info so they can communicate with watchdog
 void beginSubsystems() {
+    //possiblyTODO refactor into for loop
     printf("[WATCHDOG] Spawning Subsystems...\n");
 
-    printf("[WATCHDOG]  -- Spawning Telemetry\n");
-    spawn_subsystem("./telemetry_system", "telemetry_system", SYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS);
-    printf("[WATCHDOG]  -- Spawning Braking\n");
-    spawn_subsystem("./braking_system",   "braking_system",   SYS_BRAKING,   SYS_BRAKING_RESPONSETIME_MS);
-    printf("[WATCHDOG]  -- Spawning Client\n");
-    spawn_subsystem("./client",           "client",           SYS_CLIENT,    SYS_CLIENT_RESPONSETIME_MS);
+    if (!spawn_subsystem("./telemetry_system", "telemetry_system", SUBSYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, "Telemetry System")) {
+        printf("[WATCHDOG] Failed to spawn Telemetry System\n");
+    }
+
+    if (!spawn_subsystem("./braking_system",   "braking_system", SUBSYS_BRAKE, SYS_BRAKING_RESPONSETIME_MS, "Braking System")) {
+        printf("[WATCHDOG] Failed to spawn Braking System\n");
+    }
+
+    if (!spawn_subsystem("./client", "client", SUBSYS_CLIENT, SYS_CLIENT_RESPONSETIME_MS, "Client")) {
+        printf("[WATCHDOG] Failed to spawn Client\n");
+    }
 }
 
 
@@ -186,6 +174,7 @@ int main()
     printf("[WATCHDOG] CHID:%d, COID:%d   \n", attach->chid, coid);
 
 
+    //register function to shut down properly
     signal(SIGTERM, watchdog_shutdown);
     signal(SIGINT,  watchdog_shutdown);
 
@@ -210,16 +199,16 @@ int main()
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
         if (rcvid == 0) {
-            switch (pulse.code) {
+            switch (pulse.code) 
+            {
                 case PULSE_WATCHDOG_AUDIT:
                     run_health_diagnostics();
                     break;
-                case PULSE_BRAKING_ALIVE:
-                    update_last_reported(SYS_BRAKING);
+                case PULSE_SUBSYSTEM_ALIVE:
+                    update_last_reported(pulse.value.sival_int);
                     break;
-                case PULSE_TELEMETRY_ALIVE:
-                    update_last_reported(SYS_TELEMETRY);
-                    break;
+
+                
             }
         }
     }
