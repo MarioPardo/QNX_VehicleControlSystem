@@ -89,6 +89,12 @@ typedef enum {
     SUBSYS_CLIENT=4
 } SubsystemIDs;
 
+typedef enum {
+    ALIVE,
+    DEAD,
+    RESTARTING
+} ProcessLifeStatus;
+
 
 
 //Type defs / ill clean up once i get tests done 

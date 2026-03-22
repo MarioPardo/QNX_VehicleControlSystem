@@ -16,6 +16,16 @@ typedef struct {
 int sockfd;
 struct sockaddr_in dest;
 bool chaos = false;
+name_attach_t *attach;
+
+void shutdown_braking(int signo) {
+    exit(0);  // triggers atexit handlers safely
+}
+
+void cleanup_braking(void) {
+    printf("[BRAKE SYSTEM] Exiting, detaching name...\n");
+    name_detach(attach, 0);
+}
 
 ///// Braking Utilities ///////
 
@@ -117,12 +127,16 @@ int main(int argc, char *argv[])
     printf("[BRAKE SYSTEM] Connected to Watchdog\n");
 
     // register so other subsystems can find us
-    name_attach_t *attach = name_attach(NULL, "braking_system", 0);
+    attach = name_attach(NULL, "braking_system", 0);
     if (!attach) {
-        printf("[BRAKE] name_attach failed\n");
+        printf("[BRAKE SYSTEM] name_attach failed\n");
         return -1;
     }
-    printf("[BRAKE] Registered as braking_system\n");
+    
+    atexit(cleanup_braking);
+    signal(SIGTERM, shutdown_braking);
+    signal(SIGINT,  shutdown_braking);
+    printf("[BRAKE SYSTEM] Registered as braking_system\n");
 
 
     // find telemetry by name - works because telemetry called name_attach

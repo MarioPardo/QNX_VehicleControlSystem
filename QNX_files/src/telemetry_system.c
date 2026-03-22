@@ -18,6 +18,16 @@
 
 int sockfd;
 struct sockaddr_in dest;
+name_attach_t *attach;
+
+void shutdown_telemetry(int signo) {
+    exit(0);  // triggers atexit handlers safely
+}
+
+void cleanup_telemetry(void) {
+    printf("[TELEMETRY] Exiting, detaching name...\n");
+    name_detach(attach, 0);
+}
 
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");
@@ -37,11 +47,14 @@ int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Connected to watchdog\n");
 
     // register name so other subsystems can find us
-    name_attach_t *attach = name_attach(NULL, "telemetry_system", 0);
+    attach = name_attach(NULL, "telemetry_system", 0);
     if (!attach) {
         printf("[TELEMETRY] name_attach failed: %d \n",errno);
         return -1;
     }
+    atexit(cleanup_telemetry);
+    signal(SIGTERM, shutdown_telemetry);
+    signal(SIGINT,  shutdown_telemetry);
     printf("[TELEMETRY] Registered as telemetry_system\n");
     
 

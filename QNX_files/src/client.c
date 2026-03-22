@@ -7,6 +7,16 @@
 
 int sockfd;
 struct sockaddr_in dest;
+name_attach_t *attach;
+
+void shutdown_client(int signo) {
+    exit(0);  // triggers atexit handlers safely
+}
+
+void cleanup_client(void) {
+    printf("[CLIENT] Exiting, detaching name...\n");
+    name_detach(attach, 0);
+}
 
 void receiveFromDashboard(int sockfd, int brake_coid) {
     char buffer[1024];
@@ -98,11 +108,14 @@ void* send_loop(void* arg) {
 
 int main(int argc, char *argv[]) {
 
-    name_attach_t *attach = name_attach(NULL, "client", 0);
+    attach = name_attach(NULL, "client", 0);
     if (!attach) {
         printf("[CLIENT] name_attach failed\n");
         return -1;
     }
+    atexit(cleanup_client);
+    signal(SIGTERM, shutdown_client);
+    signal(SIGINT,  shutdown_client);
     printf("[CLIENT] Registered as client\n");
 
     int brake_coid = -1;

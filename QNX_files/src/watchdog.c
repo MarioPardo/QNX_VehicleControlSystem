@@ -7,7 +7,8 @@
 #include <time.h>
 #include "includes/defs.h"
 
-
+//forward declarations
+int respawn_subsystem(int subsystemIndex);
 
 //Subsystem info
 #define MAX_SUBSYSTEMS 10
@@ -16,30 +17,17 @@
 typedef struct {
     pid_t pid;
     uint64_t lastTimeReported;
-    int responseTime; //ms 
+    int responseTime; //ms
     int criticalTime; //ms
-    int isAlive;
+    ProcessLifeStatus lifeStatus;
     int chid;
     char* subsystemName;
+    char* processPath;
+    char* processName;  // registered name (used for name_open)
 } SubsystemRecord;
 
 SubsystemRecord processTable[MAX_SUBSYSTEMS];
 
-
-
-////// FUNCTIONS///////////////////
-
-void watchdog_shutdown(int signo)
-{
-    printf("[WATCHDOG] Shutting down (signal %d), killing subsystems...\n", signo);
-    for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
-        if (processTable[i].isAlive && processTable[i].pid > 0) {
-            printf("[WATCHDOG] Killing PID %d\n", processTable[i].pid);
-            kill(processTable[i].pid, SIGTERM);
-        }
-    }
-    exit(0);
-}
 
 ////helpers ///
 
@@ -51,6 +39,93 @@ uint64_t get_current_time_ms()
 }
 
 
+////// Process Handling ///////////////////
+
+void watchdog_shutdown(int signo)
+{
+    printf("[WATCHDOG] Shutting down (signal %d), killing subsystems...\n", signo);
+    for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
+        if (processTable[i].lifeStatus != DEAD && processTable[i].pid > 0) {
+            printf("[WATCHDOG] Killing PID %d\n", processTable[i].pid);
+            kill(processTable[i].pid, SIGTERM);
+        }
+    }
+    exit(0);
+}
+
+void on_child_exit(int signo) //Child process has died, we are now ready to spawn again
+{
+    pid_t dead_pid;
+    while ((dead_pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+        for (int i = 0; i < MAX_SUBSYSTEMS; i++) 
+        {
+            if (processTable[i].pid == dead_pid && processTable[i].lifeStatus == DEAD) 
+            {
+                processTable[i].lifeStatus = RESTARTING;
+                printf("[WATCHDOG] %s (PID %d) is officially dead. Queuing restart.\n",
+                       processTable[i].subsystemName, dead_pid);
+            }
+        }
+    }
+}
+
+void killProcess(int index)
+{
+    printf("[WATCHDOG] Killing %s (PID %d)\n",
+           processTable[index].subsystemName, processTable[index].pid);
+    kill(processTable[index].pid, SIGTERM);
+    processTable[index].lifeStatus = DEAD;
+}
+
+
+
+//// Subsystem Spawning
+int spawn_subsystem(const char *path, const char *name,
+                    int table_index, int response_time_ms, char* subsystemName) {
+
+    //TODO remove extra subsystemName param
+
+    printf("[WATCHDOG]   -- Spawning %s\n", subsystemName);
+
+    pid_t pid = spawnl(P_NOWAIT, path, name, NULL);
+    usleep(50000);
+
+    if (pid == -1) {
+        printf("[WATCHDOG] ERROR spawning %s\n", name);
+        return -1;
+    }
+
+    // update process table
+    processTable[table_index].pid              = pid;
+    processTable[table_index].lastTimeReported = get_current_time_ms();
+    processTable[table_index].responseTime     = response_time_ms;
+    processTable[table_index].lifeStatus       = ALIVE;
+    processTable[table_index].subsystemName    = strdup(subsystemName);
+    processTable[table_index].processPath      = strdup(path);
+    processTable[table_index].processName      = strdup(name);
+
+    // find its channel
+    int coid = -1;
+    int retries = 10;
+    while (coid == -1 && retries-- > 0) {
+        coid = name_open(name, 0);
+        if (coid == -1) usleep(200000);  // 100ms retry
+            }
+
+    if (coid == -1) {
+        printf("[WATCHDOG] Unable to find %s channel\n", name);
+        processTable[table_index].lifeStatus = DEAD;
+        return -1;
+    }
+
+    processTable[table_index].chid = coid;
+    printf("[WATCHDOG] Succesfully Spawned: %s . PID: %d\n", name, pid);
+    return 0;
+}
+
+
+
+
 /// health monitoring////
 
 void run_health_diagnostics()
@@ -60,29 +135,33 @@ void run_health_diagnostics()
     printf("[WATCHDOG] Monitoring Subsystem Health.. \n");
 
 
-    for (int i = 0; i < MAX_SUBSYSTEMS; i++) 
+    for (int i = 0; i < MAX_SUBSYSTEMS; i++)
     {
+        if (processTable[i].lifeStatus == RESTARTING) // Has been killed, now spawn
+        {
+            int ret = spawn_subsystem(processTable[i].processPath, processTable[i].processName,
+                                      i, processTable[i].responseTime, processTable[i].subsystemName);
+            if (ret == -1)
+                printf("[WATCHDOG] Error Respawning %s\n", processTable[i].subsystemName);
+            continue;
+        }
 
-        if (processTable[i].isAlive) 
+        if (processTable[i].lifeStatus == ALIVE)
         {
             uint64_t timeSinceLastReport = now - processTable[i].lastTimeReported;
 
-            //if last time they responded falls within threshold -OK
             if (timeSinceLastReport <= processTable[i].responseTime)
             {
                 printf("[WATCHDOG] Subsystem %s is healthy.\n", processTable[i].subsystemName);
-                continue;
-            } 
-            // if missed heartbeat
-            else if ( (timeSinceLastReport >= (processTable[i].responseTime)) &&  timeSinceLastReport < processTable[i].criticalTime)
+            }
+            else if (timeSinceLastReport < processTable[i].criticalTime)
             {
                 printf("[WATCHDOG] WARNING: Subsystem %s missed a heartbeat. MONITORING.\n", processTable[i].subsystemName);
             }
-
-            else  { //critical
-                printf("[WATCHDOG] CRITICAL: Subsystem %s failed. KILLING PID %d\n", processTable[i].subsystemName, processTable[i].pid);
-                // kill(processTable[i].pid, SIGKILL);
-                // Trigger respawn logic here
+            else //needs to be restarted
+            {
+                printf("[WATCHDOG] CRITICAL: Subsystem %s failed.\n", processTable[i].subsystemName);
+                killProcess(i);
             }
         }
     }
@@ -103,60 +182,23 @@ void update_last_reported(int sys_id)
 ////////
 
 
-//// Subsystem Spawning
-int spawn_subsystem(const char *path, const char *name,
-                    int table_index, int response_time_ms, char* subsystemName) {
 
-    printf("[WATCHDOG]  -- %s\n", subsystemName);
 
-    pid_t pid = spawnl(P_NOWAIT, path, name, NULL);
-    usleep(50000);
-
-    if (pid == -1) {
-        printf("[WATCHDOG] ERROR spawning %s\n", name);
-        return -1;
-    }
-
-    // update process table
-    processTable[table_index].pid              = pid;
-    processTable[table_index].lastTimeReported = get_current_time_ms();
-    processTable[table_index].responseTime     = response_time_ms;
-    processTable[table_index].isAlive          = 1;
-    processTable[table_index].subsystemName    = strdup(subsystemName);
-
-    // find its channel
-    int coid = -1;
-    int retries = 10;
-    while (coid == -1 && retries-- > 0) {
-        coid = name_open(name, 0);
-        if (coid == -1) usleep(200000);  // 100ms retry
-            }
-
-    if (coid == -1) {
-        printf("[WATCHDOG] Unable to find %s channel\n", name);
-        processTable[table_index].isAlive = 0;
-        return -1;
-    }
-
-    processTable[table_index].chid = coid;
-    printf("[WATCHDOG] %s started. PID: %d\n", name, pid);
-    return 0;
-}
 
 //spawn all subsystems, send them relevant info so they can communicate with watchdog
 void beginSubsystems() {
     //possiblyTODO refactor into for loop
     printf("[WATCHDOG] Spawning Subsystems...\n");
 
-    if (!spawn_subsystem("./telemetry_system", "telemetry_system", SUBSYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, "Telemetry System")) {
+    if (spawn_subsystem("./telemetry_system", "telemetry_system", SUBSYS_TELEMETRY, SYS_TELEMETRY_RESPONSETIME_MS, "Telemetry System")  ==-1) {
         printf("[WATCHDOG] Failed to spawn Telemetry System\n");
     }
 
-    if (!spawn_subsystem("./braking_system",   "braking_system", SUBSYS_BRAKE, SYS_BRAKING_RESPONSETIME_MS, "Braking System")) {
+    if (spawn_subsystem("./braking_system",   "braking_system", SUBSYS_BRAKE, SYS_BRAKING_RESPONSETIME_MS, "Braking System")  == -1) {
         printf("[WATCHDOG] Failed to spawn Braking System\n");
     }
 
-    if (!spawn_subsystem("./client", "client", SUBSYS_CLIENT, SYS_CLIENT_RESPONSETIME_MS, "Client")) {
+    if (spawn_subsystem("./client", "client", SUBSYS_CLIENT, SYS_CLIENT_RESPONSETIME_MS, "Client")  == -1) {
         printf("[WATCHDOG] Failed to spawn Client\n");
     }
 }
@@ -165,6 +207,13 @@ void beginSubsystems() {
 int main()
 {
 	printf("[WATCHDOG] Hello from Watchdog!\n");
+
+    //  
+    memset(processTable, 0, sizeof(processTable));
+    for (int i = 0; i < MAX_SUBSYSTEMS; i++)
+        processTable[i].lifeStatus = DEAD;
+
+
     name_attach_t *attach = name_attach(NULL, "watchdog", 0);
     if (!attach) {
         printf("[WATCHDOG] name_attach failed: %d (stale instance may be running - run 'slay watchdog telemetry_system braking_system client')\n", errno);
@@ -177,6 +226,7 @@ int main()
     //register function to shut down properly
     signal(SIGTERM, watchdog_shutdown);
     signal(SIGINT,  watchdog_shutdown);
+    signal(SIGCHLD, on_child_exit);
 
     //create signal to wake itself up
     struct sigevent event;
