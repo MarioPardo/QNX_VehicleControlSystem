@@ -15,6 +15,19 @@ typedef struct {
 
 int sockfd;
 struct sockaddr_in dest;
+bool chaos = false;
+name_attach_t *attach;
+
+void shutdown_braking(int signo) {
+    exit(0);  // triggers atexit handlers safely
+}
+
+void cleanup_braking(void) {
+    printf("[BRAKE SYSTEM] Exiting, detaching name...\n");
+    name_detach(attach, 0);
+}
+
+///// Braking Utilities ///////
 
 void braking_system_setup_vehicleinfo(BrakingContext* context) {
     // TODO handle setup when process has crashed/been stopped
@@ -25,7 +38,9 @@ void braking_system_setup_vehicleinfo(BrakingContext* context) {
     printf("[BRAKE SYSTEM] Info Setup Complete\n");
 }
 
-//Just demo calculation prob not final thing 
+
+//does not output to telemetry, this sends message to vehicle sim 
+//TODO fix
 void processBrakeInput(BrakingContext* context, int telemetry_coid) {
     // calculate
     context->currentSpeed -= 0.2f;  // natural deceleration
@@ -36,7 +51,7 @@ void processBrakeInput(BrakingContext* context, int telemetry_coid) {
     printf("[BRAKE] Speed: %.1f Brake: %.1f\n", 
            context->currentSpeed, context->currentBrakeLevel);
 
-    // send to telemetry - this is ,uh yeah... ,  telemetry parsed
+    // send to vehicle sim telemetry parsed
     ProcessMsg msg;
 
     msg.subsys                 = SUBSYS_BRAKE;
@@ -46,6 +61,9 @@ void processBrakeInput(BrakingContext* context, int telemetry_coid) {
     
     // printf("[BRAKE SYSTEM] Applying brakes at level: %f\n", context->currentBrakeLevel);
 }
+
+
+/// Communication ///////
 
 void receiveMessage(BrakingContext* context, int rcvid) {
     //actual working logic just to make sure pipeline is flowing 
@@ -61,6 +79,9 @@ void receiveMessage(BrakingContext* context, int rcvid) {
     // appropriate message handling functions
 }
 
+/// Process Handling ///////
+
+
 void sendWatchdogHealthStatus(int watchdog_coid)
 {
 
@@ -70,12 +91,26 @@ void sendWatchdogHealthStatus(int watchdog_coid)
         return;
     }
     printf("[BRAKE SYSTEM] Checking in! \n");
-	MsgSendPulse(watchdog_coid, -1, PULSE_BRAKING_ALIVE, 0);
+	MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_BRAKE);
 }
+
+void chaosMode()// triggers a failure. must be restarted
+{
+    printf("[BRAKE SYSTEM] CHAOS MODE ACTIVATED! \n");
+    chaos = true;
+    return;
+    
+    while(true)
+    {
+        //do nothing
+    }
+}
+
+///// MAIN //////
 
 int main(int argc, char *argv[])
 {
-	printf("[BRAKE SYSTEM]]Hello from Braking System!");
+	printf("[BRAKE SYSTEM]]Hello from Braking System! \n");
 
 	BrakingContext state;
     braking_system_setup_vehicleinfo(&state);
@@ -85,19 +120,23 @@ int main(int argc, char *argv[])
     while (watchdog_coid == -1) {
         watchdog_coid = name_open("watchdog", 0);
         if (watchdog_coid == -1) {
-            printf("[BRAKE] Waiting for Watchdog...\n");
+            printf("[BRAKE] Waiting for Watchdog COID...\n");
             sleep(1);
         }
     }
     printf("[BRAKE SYSTEM] Connected to Watchdog\n");
 
     // register so other subsystems can find us
-    name_attach_t *attach = name_attach(NULL, "braking_system", 0);
+    attach = name_attach(NULL, "braking_system", 0);
     if (!attach) {
-        printf("[BRAKE] name_attach failed\n");
+        printf("[BRAKE SYSTEM] name_attach failed\n");
         return -1;
     }
-    printf("[BRAKE] Registered as braking_system\n");
+    
+    atexit(cleanup_braking);
+    signal(SIGTERM, shutdown_braking);
+    signal(SIGINT,  shutdown_braking);
+    printf("[BRAKE SYSTEM] Registered as braking_system\n");
 
 
     // find telemetry by name - works because telemetry called name_attach
@@ -116,13 +155,13 @@ int main(int argc, char *argv[])
 
     //Initialize own timer so process wakes up as needed
     struct sigevent event;
-    SIGEV_PULSE_INIT(&event, my_coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_BRAKING_INTERNAL, 0);
+    SIGEV_PULSE_INIT(&event, my_coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_SUBSYSTEM_INTERNAL, SUBSYS_BRAKE);
     timer_t timer_id;
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
 
     struct itimerspec itime;
-    itime.it_value.tv_sec = 0;
-    itime.it_value.tv_nsec = 20000000 * 10; // 20ms execution cycle * 100 for debug TODO make var
+    itime.it_value.tv_sec = SYS_BRAKING_RESPONSETIME_MS / 1000;
+    itime.it_value.tv_nsec = (SYS_BRAKING_RESPONSETIME_MS % 1000) * 1000000;
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
@@ -133,10 +172,14 @@ int main(int argc, char *argv[])
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
         if (rcvid == 0) {
-            if (pulse.code == PULSE_BRAKING_INTERNAL)
+            if (pulse.code == PULSE_SUBSYSTEM_INTERNAL)
             {
                 processBrakeInput(&state, telemetry_coid);
                 sendWatchdogHealthStatus(watchdog_coid);
+            }
+            if(pulse.code == PULSE_CHAOSMODE)
+            {
+                chaosMode();
             }
         } else if (rcvid > 0) {
             receiveMessage(&state, rcvid);

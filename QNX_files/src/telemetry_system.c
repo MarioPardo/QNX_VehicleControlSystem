@@ -18,6 +18,16 @@
 
 int sockfd;
 struct sockaddr_in dest;
+name_attach_t *attach;
+
+void shutdown_telemetry(int signo) {
+    exit(0);  // triggers atexit handlers safely
+}
+
+void cleanup_telemetry(void) {
+    printf("[TELEMETRY] Exiting, detaching name...\n");
+    name_detach(attach, 0);
+}
 
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");
@@ -37,11 +47,14 @@ int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Connected to watchdog\n");
 
     // register name so other subsystems can find us
-    name_attach_t *attach = name_attach(NULL, "telemetry_system", 0);
+    attach = name_attach(NULL, "telemetry_system", 0);
     if (!attach) {
         printf("[TELEMETRY] name_attach failed: %d \n",errno);
         return -1;
     }
+    atexit(cleanup_telemetry);
+    signal(SIGTERM, shutdown_telemetry);
+    signal(SIGINT,  shutdown_telemetry);
     printf("[TELEMETRY] Registered as telemetry_system\n");
     
 
@@ -57,12 +70,12 @@ int main(int argc, char *argv[]) {
     // setup 100ms timer for sending telemetry
     struct sigevent event;
     SIGEV_PULSE_INIT(&event, my_coid, SIGEV_PULSE_PRIO_INHERIT,
-                     PULSE_TELEMETRY_INTERNAL, 0);
+                     PULSE_SUBSYSTEM_INTERNAL, SUBSYS_TELEMETRY);
     timer_t timer_id;
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
     struct itimerspec itime;
-    itime.it_value.tv_sec  = 1;               // 1 second cycle (debug)
-    itime.it_value.tv_nsec = 0;
+    itime.it_value.tv_sec  = SYS_TELEMETRY_RESPONSETIME_MS / 1000;
+    itime.it_value.tv_nsec = (SYS_TELEMETRY_RESPONSETIME_MS % 1000) * 1000000;
     itime.it_interval      = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
@@ -80,8 +93,11 @@ int main(int argc, char *argv[]) {
 
         if (rcvid == 0) {
             // timer fired - package and send to Python //Going to fix this after testing  , promise the PULSEBAKING
-             if (pulse.code == PULSE_TELEMETRY_INTERNAL) {
+             if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) 
+             {
 
+                //TODO should be two separate functions below
+                {
                 // build telemetry packet to be sent to dashboard with data so far
                 telemetry_packet t;
                 memset(&t, 0, sizeof(t));
@@ -101,9 +117,10 @@ int main(int argc, char *argv[]) {
                 free(json);
 
                 printf("[TELEMETRY] packet sent to Python\n");
+                }
 
                 // check in with watchdog
-                MsgSendPulse(watchdog_coid, -1, PULSE_TELEMETRY_ALIVE, 0);
+                MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
             }
 
         } else if (rcvid > 0) {

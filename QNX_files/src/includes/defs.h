@@ -24,38 +24,11 @@
 
 
 
-//Networking
+//Networking ///
 #define LISTEN_PORT 5000
 #define SEND_PORT   6000
 
-// my ip address
-
 #define DEST_IP     "192.168.56.1"
-
-//This is my IP : lol this has to be the worst practice ever lol
-
-
-//Telemetry aids
-
-#define SUBSYS_BRAKE    0
-#define SUBSYS_THROTTLE 1
-#define SUBSYS_STEERING 2
-#define SUBSYS_TELEMETRY 3
-
-// define these first
-typedef struct { float speed; float brake_level; } BrakeUpdate;
-typedef struct { float value; } ThrottleUpdate;
-typedef struct { float angle; } SteeringUpdate;
-
-// NOW ProcessMsg works
-typedef struct {
-    int subsys;
-    union {
-        BrakeUpdate    brake;
-        ThrottleUpdate throttle;
-        SteeringUpdate steering;
-    } data;
-} ProcessMsg;
 
 extern int sockfd;
 extern struct sockaddr_in dest;
@@ -68,16 +41,62 @@ void* send_loop(void* arg);
 void* recv_loop(void* arg);
 
 
+
+// Dashboard -> QNX Messaging
+typedef struct { float speed; float brake_level; } BrakeUpdate;
+typedef struct { float value; } ThrottleUpdate;
+typedef struct { float angle; } SteeringUpdate;
+
+
+typedef struct {
+    int subsys;
+    union {
+        BrakeUpdate    brake;
+        ThrottleUpdate throttle;
+        SteeringUpdate steering;
+    } data;
+} ProcessMsg;
+
+
 //Pulse Codes
 typedef enum {
     PULSE_WATCHDOG_AUDIT = _PULSE_CODE_MINAVAIL + 1,
-    PULSE_BRAKING_ALIVE,
-    PULSE_BRAKING_INTERNAL,
-    PULSE_TELEMETRY_INTERNAL,   // add
-    PULSE_TELEMETRY_ALIVE,      // add
-    PULSE_STEERING_ALIVE,       // add for future
-    PULSE_THROTTLE_ALIVE        // add for future
+    PULSE_SUBSYSTEM_INTERNAL,
+    PULSE_SUBSYSTEM_ALIVE,     
+    PULSE_CHAOSMODE
+
 } SystemPulseCodes;
+
+
+/// Subsystem Info
+
+//response times : how often we expect them to check in * 1000 for debug
+#define SYS_BRAKING_RESPONSETIME_MS 5000 
+#define SYS_CLIENT_RESPONSETIME_MS 1000 
+#define SYS_TELEMETRY_RESPONSETIME_MS 2000 
+
+//critical times : how many MS since last check in such that we kill and restart process
+#define SYS_BRAKING_CRITICALTIME_MS 10000 
+#define SYS_CLIENT_CRITICALTIME_MS 2000 
+#define SYS_TELEMETRY_CRITICALTIME_MS 4000 
+
+
+typedef enum {
+    SUBSYS_BRAKE=0,
+    SUBSYS_THROTTLE=1,
+    SUBSYS_STEERING=2,
+    SUBSYS_TELEMETRY=3,
+    SUBSYS_CLIENT=4
+} SubsystemIDs;
+
+typedef enum {
+    ALIVE,
+    DEAD,
+    RESTARTING
+} ProcessLifeStatus;
+
+
+
 //Type defs / ill clean up once i get tests done 
 
 // Data_parser relevant files 
