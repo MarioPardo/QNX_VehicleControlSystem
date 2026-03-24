@@ -16,6 +16,7 @@ speed = 0.0
 throttle = 0
 brake = 0
 steering = 0
+gear = "D"  # NEW
 
 safe_mode = False
 snow_mode = False  
@@ -39,12 +40,10 @@ def log_event(msg):
 while True:
 
     # RECEIVE UDP MESSAGES
-   
     try:
         sock.settimeout(0.001)
         data, addr = sock.recvfrom(1024)
 
-        # Simulate packet loss (10%)
         if random.random() < 0.1:
             continue
 
@@ -62,8 +61,12 @@ while True:
         elif msg_type == "SteeringInput":
             steering = message["data"]["Angle"]
 
-        elif msg_type == "SnowModeToggle":  
+        elif msg_type == "SnowModeToggle":
             snow_mode = message["data"]["Enabled"]
+
+        elif msg_type == "GearChange":   # NEW
+            gear = message["data"]["Gear"]
+            print(f"[ECU] Gear set to {gear}")
 
         elif msg_type == "Heartbeat":
             last_heartbeat = time.time()
@@ -73,73 +76,73 @@ while True:
 
     now = time.time()
 
-    
     # PRIORITY 1: BRAKE TASK
-    # runs every 10 ms
-    
     if now - last_brake_task > 0.01:
 
         if brake > 0:
-            throttle = 0   # Brake overrides throttle
+            throttle = 0
 
-        speed -= (brake / 100) * 12
+        # Brake always reduces magnitude of speed
+        if speed > 0:
+            speed -= (brake / 100) * 12
+        elif speed < 0:
+            speed += (brake / 100) * 12
 
         last_brake_task = now
 
-    
     # PRIORITY 2: THROTTLE TASK
-    # runs every 30 ms
-   
     if now - last_throttle_task > 0.03:
 
-        if snow_mode:
-            speed += (throttle / 100) * 3   # slower acceleration in snow
-        else:
-            speed += (throttle / 100) * 6
+        accel = (throttle / 100) * (3 if snow_mode else 6)
+
+        if gear == "D":
+            speed += accel
+        elif gear == "R":
+            speed -= accel  # reverse direction
 
         last_throttle_task = now
 
-   
     # PRIORITY 3: STEERING TASK
-    # runs every 60 ms
-    
     if now - last_steering_task > 0.06:
 
-        # steering safety limit
-        if speed > 80:
+        if abs(speed) > 80:
             steering = steering * 0.5
 
         last_steering_task = now
 
+    # Friction
+    if speed > 0:
+        speed -= 0.2
+    elif speed < 0:
+        speed += 0.2
 
-    speed -= 0.2
-
-    if speed < 0:
-        speed = 0
-
+    # Clamp speed
     if speed > 120:
         speed = 120
+    if speed < -40:  # reverse limit
+        speed = -40
 
-    # Snow mode speed cap
-    if snow_mode and speed > 50:
-        speed = 50
+    # Snow mode cap
+    if snow_mode:
+        if speed > 50:
+            speed = 50
+        if speed < -20:
+            speed = -20
 
     # HEALTH MONITOR
-
     if time.time() - last_heartbeat > 3:
         safe_mode = True
         throttle = 0
 
-    if safe_mode and speed > 30:
-        speed = 30
+    if safe_mode and abs(speed) > 30:
+        speed = 30 if speed > 0 else -30
 
     # SENSOR STATUS
     wheel_ok = True
     if int(time.time()) % 12 == 0:
         wheel_ok = False
 
-    # TELEMETRY MESSAGE
-    
+    # TELEMETRY
     telemetry = {
         "type": "VehicleTelemetry",
         "data": {
@@ -148,7 +151,8 @@ while True:
             "Brake": brake,
             "SteeringAngle": steering,
             "SafeMode": safe_mode,
-            "SnowMode": snow_mode 
+            "SnowMode": snow_mode,
+            "Gear": gear   # NEW
         },
         "timestamp": time.time()
     }
@@ -157,7 +161,7 @@ while True:
         sock.sendto(json.dumps(telemetry).encode(), client_addr)
 
     log_event(
-        f"speed={speed} throttle={throttle} brake={brake} snow_mode={snow_mode}"
+        f"speed={speed} throttle={throttle} brake={brake} gear={gear} snow_mode={snow_mode}"
     )
 
     time.sleep(0.01)
