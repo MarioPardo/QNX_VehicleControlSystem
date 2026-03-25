@@ -1,15 +1,17 @@
 import socket
 import json
 import time
+import threading
 
 
 class QNXSender:
     def __init__(self):
         self.to_vehicle_sim_messages = [
-            {"SteeringCommand": {"Angle": -90}}
+            {"VehicleControls": {"Drive": {"ThrottleLevel": 0.5, "Steering": 0.0, "toggleGear": "D"}}},
+            {"VehicleControls": {"Brake": {"brakeLevel": 0.8}}},
         ]
-        self.to_vehicle_sim_frequencies = [60] #how often (ms) we want each message sent
-        
+        self.to_vehicle_sim_frequencies = [500, 500]
+
         self.to_dashboard_messages = []
         self.to_dashboard_frequencies = []
 
@@ -30,27 +32,47 @@ class VehicleSimSender:
         self.frequencies = [60, 10, 30]
 
 
-def send_messages(message, frequency_ms, host, port):
+def send_single(message, frequency_ms, host, port):
+    """Send a single message repeatedly at a given frequency."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     interval = frequency_ms / 1000.0
-    
-    print(f"\n[UDP Sender] Sending to {host}:{port}")
-    print(f"[UDP Sender] Message: {json.dumps(message)}")
-    print(f"[UDP Sender] Frequency: {frequency_ms}ms")
-    print("[UDP Sender] Press Ctrl+C to stop\n")
-    
+
+    print(f"  -> {json.dumps(message)} every {frequency_ms}ms")
+
     try:
         while True:
-            message_json = json.dumps(message)
-            message_bytes = message_json.encode('utf-8')
-            sock.sendto(message_bytes, (host, port))
-            print(f"[{time.strftime('%H:%M:%S')}] Message sent")
+            data = json.dumps(message).encode('utf-8')
+            sock.sendto(data, (host, port))
             time.sleep(interval)
-            
     except KeyboardInterrupt:
-        print("\n[UDP Sender] Stopped")
+        pass
     finally:
         sock.close()
+
+
+def send_multiple(selected, messages, frequencies, host, port):
+    """Send multiple messages concurrently, each on its own thread."""
+    print(f"\n[UDP Sender] Sending to {host}:{port}")
+    print(f"[UDP Sender] Sending {len(selected)} message(s):")
+    for idx in selected:
+        print(f"  [{idx}] {json.dumps(messages[idx])} every {frequencies[idx]}ms")
+    print("[UDP Sender] Press Ctrl+C to stop\n")
+
+    threads = []
+    for idx in selected:
+        t = threading.Thread(
+            target=send_single,
+            args=(messages[idx], frequencies[idx], host, port),
+            daemon=True
+        )
+        threads.append(t)
+        t.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n[UDP Sender] Stopped")
 
 
 def main():
@@ -105,21 +127,26 @@ def main():
     print("\nAvailable messages:")
     for i, msg in enumerate(messages):
         print(f"{i}) {json.dumps(msg)} - {frequencies[i]}ms")
-    
-    msg_choice = input("\nSelect message ID: ").strip()
-    msg_id = int(msg_choice)
-    
-    if msg_id < 0 or msg_id >= len(messages):
-        print("Invalid message ID")
-        return
-    
+
+    msg_choice = input("\nSelect message IDs (comma-separated, or 'all'): ").strip()
+
+    if msg_choice.lower() == "all":
+        selected = list(range(len(messages)))
+    else:
+        selected = [int(x.strip()) for x in msg_choice.split(",")]
+
+    for idx in selected:
+        if idx < 0 or idx >= len(messages):
+            print(f"Invalid message ID: {idx}")
+            return
+
     host_input = input("\nEnter target IP address (default 127.0.0.1): ").strip()
     host = host_input if host_input else "127.0.0.1"
-    
-    port_input = input("Enter target port (default 5000): ").strip()
-    port = int(port_input) if port_input else 5000
-    
-    send_messages(messages[msg_id], frequencies[msg_id], host, port)
+
+    port_input = input("Enter target port (default 5001): ").strip()
+    port = int(port_input) if port_input else 5001
+
+    send_multiple(selected, messages, frequencies, host, port)
 
 
 if __name__ == "__main__":
