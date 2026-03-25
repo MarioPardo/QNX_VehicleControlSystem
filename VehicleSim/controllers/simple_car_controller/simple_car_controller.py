@@ -7,6 +7,7 @@ Expected message format:
   {"VehicleControls": {"Drive": {"ThrottleLevel": 0.5, "Steering": 0.0, "toggleGear": "D"}}}
 """
 
+import math
 from vehicle import Driver
 from udp_communicator import UDPCommunicator
 
@@ -93,16 +94,6 @@ class SteeringSubsystem:
         self.angle = angle
         self.driver.setSteeringAngle(angle)
 
-    def send_status(self, udp_comm):
-        steering_angle_deg = self.angle * 540
-        message = {
-            "SteeringSystemStatus": {
-                "Status": self.status,
-                "ActualAngle": steering_angle_deg
-            }
-        }
-        udp_comm.send_json_message(message)
-
 
 class BrakingSubsystem:
     def __init__(self, driver):
@@ -114,15 +105,6 @@ class BrakingSubsystem:
     def set_braking(self, intensity):
         self.intensity = intensity
         self.driver.setBrakeIntensity(intensity)
-
-    def send_status(self, udp_comm):
-        message = {
-            "BrakingSystemStatus": {
-                "Status": self.status,
-                "Temperature": self.temperature
-            }
-        }
-        udp_comm.send_json_message(message)
 
 
 class ThrottleSubsystem:
@@ -137,18 +119,6 @@ class ThrottleSubsystem:
         self.value = value
         self.driver.setThrottle(value)
         self.rpm = int(value * 6000)
-
-    def send_status(self, udp_comm):
-        actual_throttle = self.value * 100
-        message = {
-            "ThrottleSystemStatus": {
-                "Status": self.status,
-                "ActualThrottle": actual_throttle,
-                "RPM": self.rpm,
-                "Temperature": self.temperature
-            }
-        }
-        udp_comm.send_json_message(message)
 
 
 # --- Vehicle Manager ---
@@ -166,9 +136,6 @@ class VehicleManager:
         self.steering_subsystem = SteeringSubsystem(self.driver)
         self.braking_subsystem = BrakingSubsystem(self.driver)
         self.throttle_subsystem = ThrottleSubsystem(self.driver)
-
-        self.last_status_send_time = 0
-        self.status_send_interval = 0.2
 
     def apply_brake(self, brake_level):
         """Apply braking and cut throttle."""
@@ -204,19 +171,32 @@ class VehicleManager:
             print(f"UDP RECEIVED [Drive]: throttle={throttle}, steering={steering}, gear={gear}")
             self.apply_drive(throttle, steering, gear)
 
-    def send_status(self):
-        """Periodically send subsystem status over UDP."""
-        current_time = self.driver.getTime()
-        if current_time - self.last_status_send_time >= self.status_send_interval:
-            self.steering_subsystem.send_status(self.udp_comm)
-            self.braking_subsystem.send_status(self.udp_comm)
-            self.throttle_subsystem.send_status(self.udp_comm)
-            self.last_status_send_time = current_time
+    def get_speed_kmh(self):
+        """Get current vehicle speed in km/h as int."""
+        speed = self.driver.getCurrentSpeed()
+        if math.isnan(speed):
+            return 0
+        return int(speed)
+
+    def send_brake_telemetry(self):
+        brake_temp = int(self.braking_subsystem.temperature)
+        message = {"VehicleData": {"Brake": {"brakeTemp": brake_temp}}}
+        self.udp_comm.send_json_message(message)
+
+    def send_drive_telemetry(self):
+        speed = self.get_speed_kmh()
+        message = {"VehicleData": {"Drive": {"speed": speed}}}
+        self.udp_comm.send_json_message(message)
+
+    def send_telemetry(self):
+        """Send vehicle telemetry data every tick."""
+        self.send_brake_telemetry()
+        self.send_drive_telemetry()
 
     def run(self):
         while self.driver.step() != -1:
             self.process_udp()
-            self.send_status()
+            self.send_telemetry()
 
 
 if __name__ == '__main__':

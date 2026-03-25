@@ -8,7 +8,7 @@ class QNXSender:
     def __init__(self):
         self.to_vehicle_sim_messages = [
             {"VehicleControls": {"Drive": {"ThrottleLevel": 0.5, "Steering": 0.0, "toggleGear": "D"}}},
-            {"VehicleControls": {"Brake": {"brakeLevel": 0.8}}},
+            {"VehicleControls": {"Brake": {"brakeLevel": 0.0}}},
         ]
         self.to_vehicle_sim_frequencies = [500, 500]
 
