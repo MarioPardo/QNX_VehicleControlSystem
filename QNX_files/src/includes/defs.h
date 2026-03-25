@@ -104,13 +104,12 @@ typedef struct
 
 
 // Haruns - Telemetry data struct for now
+
 typedef struct{
     float speed;
-    // float throttle;
-    // float brake;
-    // float steering_angle;
-    // int   safe_mode;    // bool
     int   snow_mode;    // bool
+    char warnings [10][64];  
+    int   warning_count;
     
 }telemetry_msg;
 
@@ -125,16 +124,25 @@ typedef struct {
 // webot sim data
 typedef struct 
 {
-   double throttle_level;    // [  0 , 1]
-   double brake_level;       // [  0 , 1]
-   double steering_level;    // [ -1 , 1]
-   int toggleGear ;         //[ D = 0 , R = 1 , W = 2]
+    char* subsys  [32];         // contains name of subsystem for that data
+    vehicle_controls_data data;
 }vehicle_controls;
+
+typedef struct 
+{
+    double throttle_level;    // [  0 , 1]
+    double brake_level;       // [  0 , 1]
+    double steering_level;    // [ -1 , 1]
+    char* toggleGear [2];         //[ D = 0 , R = 1]
+}vehicle_controls_data;
+
 
 
 void packet_init(msg_packet *c);
+void vc_init(vehicle_controls *vc);
 char *telemetry_to_json(telemetry_packet *t);
 void json_to_msg_packet(const char *json_str, msg_packet *p);
+char* sim_data_to_json(vehicle_controls *v);
 
 // -------------------------------------------------------------------------------------------------------
 
