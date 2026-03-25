@@ -198,6 +198,10 @@ void beginSubsystems() {
         printf("[WATCHDOG] Failed to spawn Braking System\n");
     }
 
+    if (spawn_subsystem("./driving_system",   "driving_system", SUBSYS_DRIVE, SYS_DRIVE_RESPONSETIME_MS, "Driving System")  == -1) {
+        printf("[WATCHDOG] Failed to spawn Driving System\n");
+    }
+
     if (spawn_subsystem("./client", "client", SUBSYS_CLIENT, SYS_CLIENT_RESPONSETIME_MS, "Client")  == -1) {
         printf("[WATCHDOG] Failed to spawn Client\n");
     }

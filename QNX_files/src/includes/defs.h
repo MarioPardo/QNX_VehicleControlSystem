@@ -63,7 +63,7 @@ typedef enum {
     PULSE_WATCHDOG_AUDIT = _PULSE_CODE_MINAVAIL + 1,
     PULSE_SUBSYSTEM_INTERNAL,
     PULSE_SUBSYSTEM_ALIVE,     
-    PULSE_CHAOSMODE
+    PULSE_CHAOSMODE,
 
 } SystemPulseCodes;
 
@@ -71,19 +71,21 @@ typedef enum {
 /// Subsystem Info
 
 //response times : how often we expect them to check in * 1000 for debug
-#define SYS_BRAKING_RESPONSETIME_MS 5000 
-#define SYS_CLIENT_RESPONSETIME_MS 1000 
-#define SYS_TELEMETRY_RESPONSETIME_MS 2000 
+#define SYS_BRAKING_RESPONSETIME_MS 5000
+#define SYS_DRIVE_RESPONSETIME_MS 3000
+#define SYS_CLIENT_RESPONSETIME_MS 1000
+#define SYS_TELEMETRY_RESPONSETIME_MS 2000
 
 //critical times : how many MS since last check in such that we kill and restart process
 #define SYS_BRAKING_CRITICALTIME_MS 10000 
+#define SYS_DRIVE_CRITICALTIME_MS 6000
 #define SYS_CLIENT_CRITICALTIME_MS 2000 
 #define SYS_TELEMETRY_CRITICALTIME_MS 4000 
 
 
 typedef enum {
     SUBSYS_BRAKE=0,
-    SUBSYS_THROTTLE=1,
+    SUBSYS_DRIVE=1,
     SUBSYS_STEERING=2,
     SUBSYS_TELEMETRY=3,
     SUBSYS_CLIENT=4

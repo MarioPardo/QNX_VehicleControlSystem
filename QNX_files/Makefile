@@ -2,6 +2,7 @@
 EXE_MAIN     = main_supervisor
 EXE_WATCHDOG = watchdog
 EXE_BRAKING  = braking_system
+EXE_DRIVING = driving_system
 EXE_TELEMETRY = telemetry_system
 EXE_CLIENT    = client
 
@@ -10,10 +11,10 @@ OBJDIR   = obj
 CC       = qcc 
 
 # For pi platform
-# PLATFORM = -Vgcc_ntoaarch64le
+ PLATFORM = -Vgcc_ntoaarch64le
 
 # for testing on VM might be useful x86 VM
-PLATFORM = -Vgcc_ntox86_64
+#PLATFORM = -Vgcc_ntox86_64
 
 # ADDED: -g and -O0 to LDFLAGS to ensure symbols survive the link stage
 # ADDED: -Werror-implicit-function-declaration to catch the source of your crashes
@@ -34,6 +35,9 @@ OBJS_WD    = $(patsubst %,$(OBJDIR)/%,$(_OBJS_WD))
 _OBJS_BRK  = braking_system.o
 OBJS_BRK   = $(patsubst %,$(OBJDIR)/%,$(_OBJS_BRK))
 
+_OBJS_DRV  = driving_system.o
+OBJS_DRV   = $(patsubst %,$(OBJDIR)/%,$(_OBJS_DRV))
+
 _OBJS_TEL  = telemetry_system.o  data_parser.o socket.o cJSON.o
 OBJS_TEL   = $(patsubst %,$(OBJDIR)/%,$(_OBJS_TEL))
 
@@ -41,7 +45,7 @@ _OBJS_CLI  = client.o  data_parser.o socket.o cJSON.o
 OBJS_CLI   = $(patsubst %,$(OBJDIR)/%,$(_OBJS_CLI))
 
 # 4. Rules
-all: $(OBJDIR) $(EXE_MAIN) $(EXE_WATCHDOG) $(EXE_BRAKING) $(EXE_TELEMETRY) $(EXE_CLIENT)
+all: $(OBJDIR) $(EXE_MAIN) $(EXE_WATCHDOG) $(EXE_BRAKING) $(EXE_DRIVING) $(EXE_TELEMETRY) $(EXE_CLIENT)
 
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
@@ -58,6 +62,10 @@ $(EXE_WATCHDOG): $(OBJS_WD)
 $(EXE_BRAKING): $(OBJS_BRK)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS_MAIN)
 
+# Build Driving System
+$(EXE_DRIVING): $(OBJS_DRV)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS_MAIN)
+
 $(EXE_TELEMETRY): $(OBJS_TEL)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS_MAIN)
 
@@ -69,6 +77,6 @@ $(OBJDIR)/%.o: %.c
 	$(CC) $(PLATFORM) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -rf $(EXE_MAIN) $(EXE_WATCHDOG) $(EXE_BRAKING) $(EXE_TELEMETRY) $(EXE_CLIENT) $(OBJDIR)
+	rm -rf $(EXE_MAIN) $(EXE_WATCHDOG) $(EXE_BRAKING) $(EXE_DRIVING) $(EXE_TELEMETRY) $(EXE_CLIENT) $(OBJDIR)
 	
 .PHONY: all clean
