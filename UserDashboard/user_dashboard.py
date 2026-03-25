@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
+
 IP = "192.168.56.126"
 
 
@@ -31,8 +32,8 @@ class Dashboard(QWidget):
 
         # UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("127.0.0.1", 6000))
-        self.server_address = ("127.0.0.1", 5000)
+        self.sock.bind(("0.0.0.0", 6000))
+        self.server_address = (IP, 5000)
 
         self.last_packet_time = time.time()
 
@@ -200,18 +201,23 @@ class Dashboard(QWidget):
 
     def network_listener(self):
         while True:
-            try:
+
+            try:    
                 data, _ = self.sock.recvfrom(1024)
+                #Just to test it received something and connection was actually estabished
                 msg = json.loads(data.decode())
                 print(f"[PYTHON] Received: Speed={msg['data']['Speed']} Brake={msg['data']['Brake']}")
                 self.packet_received.emit(data.decode())
+                
             except ConnectionResetError:
-                continue
+                continue  # ignore Windows UDP quirk, keep listening
             except Exception as e:
                 print(f"Network error: {e}")
                 continue
 
+                
     # SEND CONTROLS
+
     def send_controls(self):
 
         throttle_msg = {

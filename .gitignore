@@ -1,0 +1,27 @@
+#Python Stuff
+.venv/*
+
+# --- QNX Build Artifacts ---
+# Ignores the 'obj' folder created by our Makefile
+**/obj/
+
+# Ignores the actual executable binary
+QNX_files/main
+
+# Ignores common QNX/Momentics architecture-specific output folders
+**/armle-v7*/
+**/aarch64*/
+**/x86_64*/
+**/o.*/
+
+# --- IDE Metadata ---
+# We keep .project and .cproject, but ignore the local user settings
+**/.settings/
+**/.externalToolBuilders/
+
+# --- General C/C++ Junk ---
+*.o
+*.so
+*.a
+*.tmp
+.DS_Store
