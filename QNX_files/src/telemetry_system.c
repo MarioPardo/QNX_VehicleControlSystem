@@ -106,13 +106,13 @@ int main(int argc, char *argv[]) {
 
                 strcpy(t.type, "VehicleTelemetry");
                 t.tel.speed          = state.speed;
-                // t.tel.throttle       = state.throttle;
-                // t.tel.brake          = state.brake;
-                // t.tel.steering_angle = state.steering_angle;
-                t.tel.safe_mode      = state.safe_mode;
-                t.tel.snow_mode      = state.snow_mode;
-                t.timestamp          = (float)time(NULL);
+                t.tel.snow_mode         = state.snow_mode;
 
+                //Copying over warnings onto that 
+                
+                memcpy(t.tel.warnings, state.warnings, sizeof(state.warnings));
+ 
+                
                 // convert and send to Python
                 char *json = telemetry_to_json(&t);
                 sendto(sockfd, json, strlen(json), 0,
