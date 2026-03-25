@@ -104,6 +104,17 @@ static int setupCommChannels(int* telemetry_coid, int* vehiclesender_coid)
     return 0;
 }
 
+static void sendWatchdogHealthStatus(int watchdog_coid)
+{
+    if (watchdog_coid == -1)
+    {
+        printf("[DRIVING SYSTEM] cannot find CHID of watchdog\n");
+        return;
+    }
+
+    MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_DRIVE);
+}
+
 static void receiveMessage(DriveContext* driveContext, int rcvid)
 {
    //Check if message is Vehicle Data (from simulator)  or UserInput(from dashboard)
@@ -161,6 +172,15 @@ int main(int argc, char *argv[])
     signal(SIGINT,  shutdown_drive);
     printf("[DRIVING SYSTEM] Registered as driving_system\n");
 
+    // connect to watchdog by name (for heartbeats)
+    int watchdog_coid = -1;
+    watchdog_coid = connect_by_name_with_retries("watchdog", 10, 1);
+    if (watchdog_coid == -1) {
+        printf("[DRIVING SYSTEM] Failed to connect to watchdog\n");
+        return -1;
+    }
+    printf("[DRIVING SYSTEM] Connected to Watchdog\n");
+
     int telemetry_coid;
     int vehiclesender_coid;
     if (setupCommChannels(&telemetry_coid, &vehiclesender_coid) != 0) {
@@ -190,6 +210,7 @@ int main(int argc, char *argv[])
 
         if (rcvid == 0) {
             if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
+                sendWatchdogHealthStatus(watchdog_coid);
                 dispatchDriveData(&driveContext, telemetry_coid, vehiclesender_coid);
             }
             if (pulse.code == PULSE_CHAOSMODE) {
