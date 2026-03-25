@@ -32,12 +32,29 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
 
         //These are the controls that the dashboard is sending 
         // route to correct process
-        if (strcmp(p.msg_type, "BrakingInput") == 0) {
+
+        // Data from dashboard to webot.c for sending to webots
+        if (strcmp(p.msg_type, "Webots") == 0) {
             
             //From here then on send the data to appropriate processes , braking etc 
             
             MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
-            printf("[CLIENT] : Received braking data from Dashboard.");
+            printf("[CLIENT] : Received data from dashboard for webots.c");
+        }
+
+        // Data coming  from  webots ( the input controls basically)
+        else if (strcmp(p.msg_type, "vehicle_telem") == 0) {
+             
+            if (strcmp(p.msg_type, "Braking") == 0) {
+                
+                //From here then on send the data to appropriate processes , braking etc 
+                
+                MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
+                printf("[CLIENT] : Received braking data from Dashboard.");
+            }
+
+            MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
+            printf("[CLIENT] : Received data from webots api  ");
         }
         // else if (strcmp(p.msg_type, "ThrottleInput") == 0)
         // {
@@ -153,3 +170,19 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
+/*
+// MODELING FOR REC FOR THE JSON BIT:
+
+receive(){
+    ccheck source:
+        if from dash
+            check subsytem()
+                msgsend  to proper subsytem dependent}
+
+        if from vehicle 
+            check subsystem()
+                msgsend to proper subsytem dependent } 
+
+*/

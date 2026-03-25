@@ -132,14 +132,17 @@ int main(int argc, char *argv[]) {
 
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
+                    printf("[TELEMETRY] Hello from brake \n");
                     state.speed = msg.data.brake.speed;
-                    state.brake = msg.data.brake.brake_level;
-                    printf("[TELEMETRY] Brake update - speed: %.1f\n", state.speed);
+                    // state.brake = msg.data.brake.brake_level;
+                    // printf("[TELEMETRY] Brake update - speed: %.1f\n", state.speed);
                     break;
                 case SUBSYS_THROTTLE:
+                    printf("[TELEMETRY] Hello from  \n");
                     state.throttle = msg.data.throttle.value;
                     break;
                 case SUBSYS_STEERING:
+                    printf("[TELEMETRY] Hello from brake \n");
                     state.steering_angle = msg.data.steering.angle;
                     break;
             }
