@@ -82,18 +82,22 @@ typedef enum {
 
 // Data_parser relevant files 
 // -------------------------------------------------------------------------------------------------------
-// Haruns- This is the message i have for now but will later use FIELDS and type defs to have more range or we could always have them as null.
+
+// Haruns- this is for the data coming in to qnx via udp . Webots and Dashboard schema
 typedef struct 
 {
     double percentage;
     double angle;
     int enabled;
+    double speed;        // current speed from sim in webots
+
 }message ;
 
 typedef struct 
 {
+    char origin[32];    //Stores the origin [ Userinput | VehicleInput ]
     char subsys[32];
-    char msg_type[32];
+    // char msg_type[32]; //No longer need this 
     message msg;
 } msg_packet ;
 
@@ -102,20 +106,30 @@ typedef struct
 // Haruns - Telemetry data struct for now
 typedef struct{
     float speed;
-    float throttle;
-    float brake;
-    float steering_angle;
-    int   safe_mode;    // bool
+    // float throttle;
+    // float brake;
+    // float steering_angle;
+    // int   safe_mode;    // bool
     int   snow_mode;    // bool
     
 }telemetry_msg;
 
-//Haruns - The data to be received from py dashboard to be used (schema)
+//Haruns - The data to be sent to py dashboard to be used for display(schema)
 typedef struct {
     char type [32];
     telemetry_msg tel;
-    float timestamp ;
+    // float timestamp ;  //Not needed anymore
 }telemetry_packet;
+
+
+// webot sim data
+typedef struct 
+{
+   double throttle_level;    // [  0 , 1]
+   double brake_level;       // [  0 , 1]
+   double steering_level;    // [ -1 , 1]
+   int toggleGear ;         //[ D = 0 , R = 1 , W = 2]
+}vehicle_controls;
 
 
 void packet_init(msg_packet *c);
