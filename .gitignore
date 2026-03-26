@@ -31,6 +31,5 @@ QNX_files/watchdog
 .DS_Store
 
 #
-
 .vscode/settings.json
 demo_connection.py
