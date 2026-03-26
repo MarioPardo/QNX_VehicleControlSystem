@@ -35,6 +35,7 @@ void vc_init(vehicle_controls *vc){
     vc->data.throttle_level = -9999;
     vc->data.brake_level = -9999;
     vc->data.steering_level = -9999;  
+    vc->data.snow_mode = 0;
 }
 
 
@@ -68,13 +69,17 @@ char *telemetry_to_json(telemetry_packet *t) {
     return out;
 }
 
-// This caters to receiving from both
+// This caters to receiving from both dashboard and webots
 
 void json_to_msg_packet(const char *json_str, msg_packet *p) {
+
+    // Default values
+
     memset(p, 0, sizeof(*p));
-    p->msg.percentage = -1.0;
-    p->msg.angle      = -1.0;
-    p->msg.enabled    = 0;
+    p->msg.percentage = -999;
+    p->msg.angle      = -999;
+    p->msg.enabled    = 0; //false for snowmode
+    p->msg.speed      = -999;
 
     cJSON *root = cJSON_Parse(json_str);
     if (!root) {
@@ -121,7 +126,8 @@ New archtype for dtaa handling all data being received into qnx
 
 */
 
-//This fuction is for parsing data being sent to webot sim
+//This fuction is for parsing data being sent to -> WEBOT SIM
+
 char* sim_data_to_json(vehicle_controls *v){
     cJSON *root = cJSON_CreateObject();
     cJSON *data = cJSON_CreateObject();
@@ -136,7 +142,10 @@ char* sim_data_to_json(vehicle_controls *v){
         cJSON_AddNumberToObject(data, "brake_level",    v->data.brake_level);
     if (v->steering_level != -999) 
         cJSON_AddNumberToObject(data, "steering_level", v->data.steering_level);
-      
+   
+    //snowmode here is being passed as an int repping true/false
+    cJSON_AddNumberToObject(data, "snow_mode", v->data.snow_mode);
+    
     cJSON_AddStringToObject(data, "toggleGear",     v->data.toggleGear);
 
 
