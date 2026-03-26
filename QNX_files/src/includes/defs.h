@@ -155,7 +155,7 @@ typedef struct
 {
     char* subsys  [32];         // contains name of subsystem for that data
     vehicle_controls_data data;
-}vehicle_contrls;
+}vehicle_controls;
 
 
 
