@@ -199,6 +199,7 @@ class Dashboard(QWidget):
                 continue
 
     # SEND CONTROLS (3s chaos)
+
     def send_controls(self):
 
         chaos_active = time.time() < self.chaos_until
@@ -208,27 +209,50 @@ class Dashboard(QWidget):
         else:
             self.chaos_btn.setText("Inject Chaos")
 
-        msg = {
-            "type": "UserInput",
+        # BRAKE MESSAGE
+        brake_msg = {
+            "origin": "UserInput",
+            "subsys": "Brake",
             "data": {
-                "Subsystem": {
-                    "Brake": {"Level": self.brake},
-                    "Driving": {
-                        "Steering": self.steering,
-                        "Throttle": self.throttle,
-                        "Gear": self.gear
-                    },
-                    "Mode": {
-                        "Snow": self.snow_mode,
-                        "Chaos": "brake" if chaos_active else None
-                    }
+                "brake": {
+                    "level": self.brake
                 }
-            },
-            "timestamp": time.time()
+            }
         }
 
-        self.sock.sendto(json.dumps(msg).encode(), self.server_address)
+        # DRIVING MESSAGE
+        driving_msg = {
+            "origin": "UserInput",
+            "subsys": "Driving",
+            "data": {
+                "steering": {
+                    "angle": self.steering
+                },
+                "throttle": {
+                    "level": self.throttle
+                },
+                "gear": self.gear
+            }
+        }
 
+        # MODE MESSAGE
+        mode_msg = {
+            "origin": "UserInput",
+            "subsys": "Mode",
+            "data": {
+                "snow": self.snow_mode,
+                "chaos": "brake" if chaos_active else None
+            }
+        }
+
+        # SEND 
+        self.sock.sendto(json.dumps(brake_msg).encode(), self.server_address)
+        self.sock.sendto(json.dumps(driving_msg).encode(), self.server_address)
+        self.sock.sendto(json.dumps(mode_msg).encode(), self.server_address)
+
+
+
+    
     # PROCESS TELEMETRY
     def process_packet(self, json_data):
 

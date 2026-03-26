@@ -18,7 +18,7 @@ steering = 0.0
 gear = "D"
 
 snow_mode = False
-chaos_mode = "brake"
+chaos_mode = None
 
 client_addr = None
 
@@ -31,23 +31,26 @@ while True:
 
         msg = json.loads(data.decode())
 
-        if msg["type"] == "UserInput":
+        if msg.get("origin") == "UserInput":
 
-            subs = msg["data"]["Subsystem"]
+            subsys = msg.get("subsys")
+            data = msg.get("data", {})
 
-            brake = subs["Brake"]["Level"]
+            if subsys == "Brake":
+                brake = data.get("brake", {}).get("level", 0)
 
-            driving = subs["Driving"]
-            throttle = driving["Throttle"]
-            steering = driving["Steering"]
-            gear = driving["Gear"]
-
-            mode = subs["Mode"]
-            snow_mode = mode["Snow"]
-            chaos_mode = mode["Chaos"]
+            elif subsys == "Driving":
+                steering = data.get("steering", {}).get("angle", 0)
+                throttle = data.get("throttle", {}).get("level", 0)
+                gear = data.get("gear", "D")
+ 
+            elif subsys == "Mode":
+                snow_mode = data.get("snow", False)
+                chaos_mode = data.get("chaos")
 
     except:
         pass
+
 
     # BRAKE
     if chaos_mode == "brake":
@@ -69,7 +72,6 @@ while True:
     else:
         speed -= accel
 
-    # FRICTION
     if speed > 0:
         speed -= 0.2
     elif speed < 0:
