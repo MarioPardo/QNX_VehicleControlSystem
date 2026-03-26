@@ -37,12 +37,8 @@ void socket_setup();
 void receiver_setup();
 void sender_setup();
 
-void* send_loop(void* arg);
-void* recv_loop(void* arg);
-
-
-
-// Dashboard -> QNX Messaging
+// Use this for processes sending data to telemetry.c
+// This is the expected data archtype that the subsystems should be sending to telemetry.c with their potential updates
 typedef struct { float speed; float brake_level; } BrakeUpdate;
 typedef struct { float value; } ThrottleUpdate;
 typedef struct { float angle; } SteeringUpdate;
@@ -124,6 +120,7 @@ typedef struct
 
 
 // Haruns - Telemetry data struct for now
+// I might also just use this for data from processes to 
 // This is data from QNX -> PYTHON DASHBOARD
 
 typedef struct{

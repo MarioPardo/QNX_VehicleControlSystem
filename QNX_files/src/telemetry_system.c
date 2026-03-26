@@ -32,9 +32,7 @@ void cleanup_telemetry(void) {
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");
 
-    telemetry_msg state;
-    memset(&state, 0, sizeof(state));
-
+   
     // connect to watchdog by name
     int watchdog_coid = -1;
     while (watchdog_coid == -1) {
@@ -82,12 +80,17 @@ int main(int argc, char *argv[]) {
     //Telemetry process wakes up every 100 ms to prep the data so far and send to dashboard
     printf("[TELEMETRY] Running\n");
     
+    telemetry_msg state;
+    memset(&state, 0, sizeof(state));
+
+
     // This is the main telemetry process function
     // main loop
     ProcessMsg msg;  // reuse for all incoming 
     
     struct _pulse pulse;
-
+    
+    // Break into separate functions bext time -Harun TODO
     while (1) {
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
@@ -108,7 +111,7 @@ int main(int argc, char *argv[]) {
                 t.tel.speed          = state.speed;
                 t.tel.snow_mode         = state.snow_mode;
 
-                //Copying over warnings onto that 
+                //Copying over warnings onto the t packet to be sent  
                 
                 memcpy(t.tel.warnings, state.warnings, sizeof(state.warnings));
  
@@ -128,6 +131,9 @@ int main(int argc, char *argv[]) {
 
         } else if (rcvid > 0) {
             // message from a subsystem
+            // This is what the subsystems should be sending 
+            // Confirm what data the subsystems are sending to telemetry.c ?
+
             MsgRead(rcvid, &msg, sizeof(msg), 0);
 
             switch (msg.subsys) {
@@ -137,14 +143,18 @@ int main(int argc, char *argv[]) {
                     // state.brake = msg.data.brake.brake_level;
                     // printf("[TELEMETRY] Brake update - speed: %.1f\n", state.speed);
                     break;
-                case SUBSYS_THROTTLE:
-                    printf("[TELEMETRY] Hello from  \n");
-                    state.throttle = msg.data.throttle.value;
+                
+                // So we are not sending throttle anymore to the dashboard . just speed, snowmode and warnings
+                case SUBSYS_DRIVE:
+                    printf("[TELEMETRY] Hello from driving \n");
+                    
+                    state.snow_mode = msg.data.throttle.value;
                     break;
-                case SUBSYS_STEERING:
-                    printf("[TELEMETRY] Hello from brake \n");
-                    state.steering_angle = msg.data.steering.angle;
-                    break;
+                // case SUBSYS_MODE:
+                //     printf("[TELEMETRY] Hello from MODE \n");
+                //     state.steering_angle = msg.data.steering.angle;
+                //     break;
+
             }
             MsgReply(rcvid, EOK, NULL, 0);
         }
