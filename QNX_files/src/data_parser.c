@@ -140,7 +140,7 @@ char* sim_data_to_json(vehicle_controls *v){
         cJSON_AddNumberToObject(data, "throttle_level", v->data.throttle_level);
     if (v->data.brake_level != -999)    
         cJSON_AddNumberToObject(data, "brake_level",    v->data.brake_level);
-    if (v->steering_level != -999) 
+    if (v->data.steering_level != -999) 
         cJSON_AddNumberToObject(data, "steering_level", v->data.steering_level);
    
     //snowmode here is being passed as an int repping true/false

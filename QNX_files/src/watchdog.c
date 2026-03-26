@@ -29,21 +29,6 @@ typedef struct {
 SubsystemRecord processTable[MAX_SUBSYSTEMS];
 
 
-
-////// FUNCTIONS///////////////////
-
-void watchdog_shutdown(int signo)
-{
-    printf("[WATCHDOG] Shutting down (signal %d), killing subsystems...\n", signo);
-    for (int i = 0; i < MAX_SUBSYSTEMS; i++) {
-        if (processTable[i].isAlive && processTable[i].pid > 0) {
-            printf("[WATCHDOG] Killing PID %d\n", processTable[i].pid);
-            kill(processTable[i].pid, SIGTERM);
-        }
-    }
-    exit(0);
-}
-
 ////helpers ///
 
 uint64_t get_current_time_ms()
