@@ -142,12 +142,6 @@ typedef struct {
 // webot sim data
 typedef struct 
 {
-    char* subsys  [32];         // contains name of subsystem for that data
-    vehicle_controls_data data;
-}vehicle_controls;
-
-typedef struct 
-{
     double throttle_level;    // [  0 , 1]
     double brake_level;       // [  0 , 1]
     double steering_level;    // [ -1 , 1]
@@ -155,6 +149,13 @@ typedef struct
     char* toggleGear [2];         //[ D = 0 , R = 1]
     
 }vehicle_controls_data;
+
+typedef struct 
+{
+    char* subsys  [32];         // contains name of subsystem for that data
+    vehicle_controls_data data;
+}vehicle_controls;
+
 
 
 
