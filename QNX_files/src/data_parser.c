@@ -94,7 +94,7 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
         strncpy(p->origin, type->valuestring, sizeof(p->origin) - 1);
 
     if (cJSON_IsString(type))
-        strncpy(p->msg_type, type->valuestring, sizeof(p->msg_type) - 1);
+        strncpy(p->subsys, type->valuestring, sizeof(p->subsys) - 1);
 
     if (cJSON_IsObject(data)) {
         // Dashboard incoming inputs / data
