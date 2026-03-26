@@ -29,3 +29,9 @@ QNX_files/watchdog
 *.a
 *.tmp
 .DS_Store
+
+#
+.cproject
+.project
+.vscode/settings.json
+demo_connection.py
