@@ -87,14 +87,16 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
         return;
     }
     cJSON *origin = cJSON_GetObjectItemCaseSensitive(root, "origin");
-    cJSON *type = cJSON_GetObjectItemCaseSensitive(root, "type");
+    cJSON *subsys = cJSON_GetObjectItemCaseSensitive(root, "subsys");
     cJSON *data = cJSON_GetObjectItemCaseSensitive(root, "data");
 
     if (cJSON_IsString(origin))
-        strncpy(p->origin, type->valuestring, sizeof(p->origin) - 1);
+        strncpy(p->origin, origin->valuestring, sizeof(p->origin) - 1);
+        p->origin[sizeof(p->origin) - 1] = '\0';
 
-    if (cJSON_IsString(type))
-        strncpy(p->subsys, type->valuestring, sizeof(p->subsys) - 1);
+    if (cJSON_IsString(subsys))
+        strncpy(p->subsys, subsys->valuestring, sizeof(p->subsys) - 1);
+        p->subsys[sizeof(p->subsys) - 1] = '\0';
 
     if (cJSON_IsObject(data)) {
         // Dashboard incoming inputs / data
