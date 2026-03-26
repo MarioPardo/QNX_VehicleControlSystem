@@ -99,18 +99,17 @@ typedef enum {
 
 
 
-//Type defs / ill clean up once i get tests done 
+// Haruns- this is for the DATA COMING INTO QNX VIA UDP . 
+//  Webots and Dashboard -> QNX
 
-// Data_parser relevant files 
-// -------------------------------------------------------------------------------------------------------
-
-// Haruns- this is for the data coming in to qnx via udp . Webots and Dashboard schema
 typedef struct 
 {
-    double percentage;
-    double angle;
-    int enabled;
-    double speed;        // current speed from sim in webots
+    double percentage;      // this is the brake level input passed in as a percentage 
+    double angle;           // this is the steering angle input from  dashboard
+    int enabled;            // this is for the snowmode 
+    double speed;           // current speed from sim in webots  
+    double temp;            // temp value which wil be coming from webots
+    char* toggleGear [2];         //[ D = 0 , R = 1]
 
 }message ;
 
@@ -125,6 +124,7 @@ typedef struct
 
 
 // Haruns - Telemetry data struct for now
+// This is data from QNX -> PYTHON DASHBOARD
 
 typedef struct{
     float speed;
@@ -134,7 +134,6 @@ typedef struct{
     
 }telemetry_msg;
 
-//Haruns - The data to be sent to py dashboard to be used for display(schema)
 typedef struct {
     char type [32];
     telemetry_msg tel;
@@ -142,6 +141,7 @@ typedef struct {
 }telemetry_packet;
 
 
+// This is or data from QNX -> WEBOTS
 // webot sim data
 typedef struct 
 {
@@ -154,7 +154,9 @@ typedef struct
     double throttle_level;    // [  0 , 1]
     double brake_level;       // [  0 , 1]
     double steering_level;    // [ -1 , 1]
+    int   snow_mode;
     char* toggleGear [2];         //[ D = 0 , R = 1]
+    
 }vehicle_controls_data;
 
 
