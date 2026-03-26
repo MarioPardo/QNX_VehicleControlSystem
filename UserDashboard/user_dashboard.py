@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
-
 IP = "192.168.56.126"
 
 
@@ -25,23 +24,23 @@ class Dashboard(QWidget):
         self.setWindowTitle("QNX Vehicle Dashboard")
         self.setGeometry(200, 200, 520, 450)
 
-        # Enable keyboard focus
         self.setFocusPolicy(Qt.StrongFocus)
-
         self.packet_received.connect(self.process_packet)
 
         # UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("0.0.0.0", 6000))
-        self.server_address = (IP, 5000)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", 6000))
+        self.server_address = ("127.0.0.1", 5000)
 
         self.last_packet_time = time.time()
 
-        # Vehicle state
-        self.throttle = 0
-        self.brake = 0
-        self.steering = 0
+        # STATE (normalized)
+        self.throttle = 0.0
+        self.brake = 0.0
+        self.steering = 0.0
         self.snow_mode = False
+        self.chaos_until = 0   # chaos
         self.gear = "D"
 
         # SPEED DISPLAY
@@ -78,7 +77,7 @@ class Dashboard(QWidget):
             color: white;
         """)
 
-        # BUTTONS (kept but optional)
+        # BUTTONS
         self.throttle_btn = QPushButton("Throttle")
         self.throttle_btn.pressed.connect(self.throttle_on)
         self.throttle_btn.released.connect(self.throttle_off)
@@ -89,6 +88,10 @@ class Dashboard(QWidget):
 
         self.snow_btn = QPushButton("Snow Mode OFF")
         self.snow_btn.clicked.connect(self.toggle_snow_mode)
+
+        # CHAOS BUTTON
+        self.chaos_btn = QPushButton("Inject Chaos")
+        self.chaos_btn.clicked.connect(self.trigger_chaos)
 
         button_style = """
         QPushButton {
@@ -109,6 +112,7 @@ class Dashboard(QWidget):
         self.throttle_btn.setStyleSheet(button_style)
         self.brake_btn.setStyleSheet(button_style)
         self.snow_btn.setStyleSheet(button_style)
+        self.chaos_btn.setStyleSheet(button_style)
 
         # Steering slider
         self.steering_slider = QSlider(Qt.Horizontal)
@@ -128,6 +132,7 @@ class Dashboard(QWidget):
         control_layout.addWidget(self.throttle_btn)
         control_layout.addWidget(self.brake_btn)
         control_layout.addWidget(self.snow_btn)
+        control_layout.addWidget(self.chaos_btn)
 
         main_layout.addWidget(self.health_label)
         main_layout.addWidget(self.warning_label)
@@ -150,100 +155,79 @@ class Dashboard(QWidget):
             }
         """)
 
-        # NETWORK
         self.start_network()
 
-        # Control loop
         self.control_timer = QTimer()
         self.control_timer.timeout.connect(self.send_controls)
         self.control_timer.start(100)
 
-        # Health monitor
         self.health_timer = QTimer()
         self.health_timer.timeout.connect(self.check_connection)
         self.health_timer.start(1000)
 
-    # KEYBOARD CONTROLS
+    # KEYBOARD
     def keyPressEvent(self, event):
         if event.isAutoRepeat():
             return
 
-        key = event.key()
-
-        if key == Qt.Key_W:
-            print("[KEY DETECTED] W")
+        if event.key() == Qt.Key_W:
             self.throttle_on()
-
-        elif key == Qt.Key_Space:
-            print("[KEY DETECTED] Space")
+        elif event.key() == Qt.Key_Space:
             self.brake_on()
-
-        elif key == Qt.Key_R:
-            print("[KEY DETECTED] R")
+        elif event.key() == Qt.Key_R:
             self.toggle_gear()
 
     def keyReleaseEvent(self, event):
         if event.isAutoRepeat():
             return
 
-        key = event.key()
-
-        if key == Qt.Key_W:
+        if event.key() == Qt.Key_W:
             self.throttle_off()
-
-        elif key == Qt.Key_Space:
+        elif event.key() == Qt.Key_Space:
             self.brake_off()
 
-    # NETWORK LISTENER
+    # NETWORK
     def start_network(self):
-        thread = threading.Thread(target=self.network_listener, daemon=True)
-        thread.start()
+        threading.Thread(target=self.network_listener, daemon=True).start()
 
     def network_listener(self):
         while True:
-
-            try:    
+            try:
                 data, _ = self.sock.recvfrom(1024)
-                #Just to test it received something and connection was actually estabished
-                msg = json.loads(data.decode())
-                print(f"[PYTHON] Received: Speed={msg['data']['Speed']} Brake={msg['data']['Brake']}")
                 self.packet_received.emit(data.decode())
-                
-            except ConnectionResetError:
-                continue  # ignore Windows UDP quirk, keep listening
-            except Exception as e:
-                print(f"Network error: {e}")
+            except:
                 continue
 
-                
-    # SEND CONTROLS
-
+    # SEND CONTROLS (3s chaos)
     def send_controls(self):
 
-        throttle_msg = {
-            "type": "ThrottleInput",
-            "data": {"Percentage": self.throttle},
+        chaos_active = time.time() < self.chaos_until
+
+        if chaos_active:
+            self.chaos_btn.setText("CHAOS ACTIVE")
+        else:
+            self.chaos_btn.setText("Inject Chaos")
+
+        msg = {
+            "type": "UserInput",
+            "data": {
+                "Subsystem": {
+                    "Brake": {"Level": self.brake},
+                    "Driving": {
+                        "Steering": self.steering,
+                        "Throttle": self.throttle,
+                        "Gear": self.gear
+                    },
+                    "Mode": {
+                        "Snow": self.snow_mode,
+                        "Chaos": "brake" if chaos_active else None
+                    }
+                }
+            },
             "timestamp": time.time()
         }
 
-        brake_msg = {
-            "type": "BrakingInput",
-            "data": {"Percentage": self.brake},
-            "timestamp": time.time()
-        }
-
-        steering_msg = {
-            "type": "SteeringInput",
-            "data": {"Angle": self.steering, "Rate": 1.0},
-            "timestamp": time.time()
-        }
-
-        heartbeat = {"type": "Heartbeat"}
-
-        self.sock.sendto(json.dumps(throttle_msg).encode(), self.server_address)
-        self.sock.sendto(json.dumps(brake_msg).encode(), self.server_address)
-        self.sock.sendto(json.dumps(steering_msg).encode(), self.server_address)
-        self.sock.sendto(json.dumps(heartbeat).encode(), self.server_address)
+        self.sock.sendto(json.dumps(msg).encode(), self.server_address)
 
     # PROCESS TELEMETRY
     def process_packet(self, json_data):
@@ -254,90 +238,58 @@ class Dashboard(QWidget):
 
             data = message["data"]
 
-            speed = data["Speed"]
-            snow_mode = data["SnowMode"]
-            safe_mode = data["SafeMode"]
+            self.speed_label.setText(str(int(data["Speed"])))
 
-            self.speed_label.setText(str(int(speed)))
-
-            if snow_mode:
+            if data["Mode"]["Snow"]:
                 self.snow_btn.setText("Snow Mode ON")
-                self.snow_mode = True
             else:
                 self.snow_btn.setText("Snow Mode OFF")
-                self.snow_mode = False
 
-            if safe_mode:
-                self.warning_label.setText("WARNING: VEHICLE IN SAFE MODE")
-            elif speed > 100:
-                self.warning_label.setText("WARNING: HIGH SPEED")
+            warnings = data.get("Warnings", [])
+            if warnings:
+                self.warning_label.setText("\n".join(warnings))
+                self.warning_label.setStyleSheet("background-color:#dc2626; color:white;")
             else:
                 self.warning_label.setText("No warnings")
+                self.warning_label.setStyleSheet("background-color:#16a34a; color:white;")
 
             self.last_packet_time = time.time()
 
-    # HEALTH MONITOR
     def check_connection(self):
-
         if time.time() - self.last_packet_time > 3:
             self.health_label.setText("QNX Control System DISCONNECTED")
             self.health_label.setStyleSheet("color:red")
-            self.warning_label.setText("WARNING: QNX Control System CONNECTION LOST")
         else:
             self.health_label.setText("QNX Control System CONNECTED")
             self.health_label.setStyleSheet("color:green")
 
-    # DRIVER INPUT (with prints)
+    # INPUTS
     def throttle_on(self):
-        self.throttle = 100
-        print("[KEY] W pressed → Throttle ON")
+        self.throttle = 1.0
 
     def throttle_off(self):
-        self.throttle = 0
-        print("[KEY] W released → Throttle OFF")
+        self.throttle = 0.0
 
     def brake_on(self):
-        self.brake = 100
-        print("[KEY] Space pressed → Brake ON")
+        self.brake = 1.0
 
     def brake_off(self):
-        self.brake = 0
-        print("[KEY] Space released → Brake OFF")
+        self.brake = 0.0
 
     def update_steering(self, value):
-        self.steering = value
+        self.steering = value / 540.0
 
-    # GEAR TOGGLE (with send + print)
     def toggle_gear(self):
-        if self.gear == "D":
-            self.gear = "R"
-        else:
-            self.gear = "D"
-
+        self.gear = "R" if self.gear == "D" else "D"
         self.gear_label.setText(f"Gear: {self.gear}")
 
-        msg = {
-            "type": "GearChange",
-            "data": {"Gear": self.gear},
-            "timestamp": time.time()
-        }
-
-        self.sock.sendto(json.dumps(msg).encode(), self.server_address)
-
-        print(f"[KEY] R pressed → Gear changed to {self.gear}")
-
-    # SNOW MODE
     def toggle_snow_mode(self):
-
         self.snow_mode = not self.snow_mode
 
-        msg = {
-            "type": "SnowModeToggle",
-            "data": {"Enabled": self.snow_mode},
-            "timestamp": time.time()
-        }
-
-        self.sock.sendto(json.dumps(msg).encode(), self.server_address)
+    # CHAOS TRIGGER (3 seconds)
+    def trigger_chaos(self):
+        print("[CHAOS] Injecting brake failure for 3 seconds")
+        self.chaos_until = time.time() + 3
 
 
 app = QApplication(sys.argv)
