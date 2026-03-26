@@ -106,7 +106,7 @@ typedef struct
     int enabled;            // this is for the snowmode 
     double speed;           // current speed from sim in webots  
     double temp;            // temp value which wil be coming from webots
-    char* toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [2];         //[ D = 0 , R = 1]
 
 }message ;
 
@@ -147,13 +147,13 @@ typedef struct
     double brake_level;       // [  0 , 1]
     double steering_level;    // [ -1 , 1]
     int   snow_mode;
-    char* toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [2];         //[ D = 0 , R = 1]
     
 }vehicle_controls_data;
 
 typedef struct 
 {
-    char* subsys  [32];         // contains name of subsystem for that data
+    char subsys  [32];         // contains name of subsystem for that data
     vehicle_controls_data data;
 }vehicle_controls;
 
