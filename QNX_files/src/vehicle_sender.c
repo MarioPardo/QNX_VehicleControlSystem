@@ -50,11 +50,7 @@ int main(int argc, char *argv[]) {
     printf("[VEHICLE_SENDER] Registered as vehicle_sender\n");
 
     // UDP setup to Webots
-    // Webots listens on WEBOTS_PORT, we send to WEBOTS_IP
-    // You'll want to add these to defs.h:
-    //   #define WEBOTS_IP   "192.168.56.1"
-    //   #define WEBOTS_PORT  5001
-    sender_setup();  // or a dedicated webots_sender_setup() if ports differ
+    sockfd = sender_setup(DEST_IP, WEBOTS_SEND_PORT, &dest);
     printf("[VEHICLE_SENDER] UDP to Webots ready\n");
 
     // connect to own channel for timer pulses
@@ -107,17 +103,17 @@ int main(int argc, char *argv[]) {
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
                     printf("[VEHICLE_SENDER] Brake update received\n");
-                    state.data.brake_level = msg.data.brake.brake_level;
+                    state.data.brake_level = msg.brake_level;
                     break;
 
                 case SUBSYS_DRIVE:
                     printf("[VEHICLE_SENDER] Drive update received\n");
-                    state.data.throttle_level = msg.data.throttle.value;
+                    state.data.throttle_level = msg.throttle_level;
                     break;
 
                 case SUBSYS_STEERING:
                     printf("[VEHICLE_SENDER] Steering update received\n");
-                    state.data.steering_level = msg.data.steering.angle;
+                    state.data.steering_level = msg.steering_angle;
                     break;
 
                 default:

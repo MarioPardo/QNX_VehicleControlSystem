@@ -81,7 +81,9 @@ int main(int argc, char *argv[]) {
 
     // For udp connection to python dashboard ( Might do sending here the n receiving elsewhere )
     printf("[TELEMETRY] Setting up sender connection UDP \n");
-    sender_setup();
+    
+    sockfd = sender_setup(DEST_IP, DASHBOARD_SEND_PORT, &dest);
+
     printf("[TELEMETRY] DONE - connection UDP \n");
 
     // connect to own channel for timer pulses

@@ -26,16 +26,15 @@
 
 //Networking ///
 #define LISTEN_PORT 5000
-#define SEND_PORT   6000
 
-#define DEST_IP     "192.168.56.1"
+#define DASHBOARD_SEND_PORT  6000   // telemetry → dashboard
+#define WEBOTS_SEND_PORT     6001   // vehicle_sender → webots
 
-extern int sockfd;
-extern struct sockaddr_in dest;
+#define DEST_IP     "192.168.56.1"  //PC IP address
 
-void socket_setup();
+
 void receiver_setup();
-void sender_setup();
+int sender_setup(const char *ip, int port,struct sockaddr_in *dst);
 
 
 // Dashboard -> QNX Messaging
@@ -63,6 +62,9 @@ typedef struct {
     int  brake_warning_count; 
     int  speed_warning_count; 
     double speed;
+    double brake_level;    // ← add this
+    double throttle_level; // ← and this, driving will need it
+    double steering_angle; // ← and this, steering will need it
     int snowmode;
 >>>>>>> c5ae921 (Adding changes to cater for new vehicle sender.c)
 } ProcessMsg;
