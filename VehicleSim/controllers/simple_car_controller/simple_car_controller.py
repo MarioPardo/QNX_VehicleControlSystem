@@ -180,12 +180,20 @@ class VehicleManager:
 
     def send_brake_telemetry(self):
         brake_temp = int(self.braking_subsystem.temperature)
-        message = {"VehicleData": {"Brake": {"brakeTemp": brake_temp}}}
+        message = {
+            "origin": "VehicleData",
+            "subsys": "Brake",
+            "data": {"brakeTemp": brake_temp},
+        }
         self.udp_comm.send_json_message(message)
 
     def send_drive_telemetry(self):
         speed = self.get_speed_kmh()
-        message = {"VehicleData": {"Drive": {"speed": speed}}}
+        message = {
+            "origin": "VehicleData",
+            "subsys": "Drive",
+            "data": {"speed": speed},
+        }
         self.udp_comm.send_json_message(message)
 
     def send_telemetry(self):

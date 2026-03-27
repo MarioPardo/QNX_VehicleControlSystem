@@ -1,167 +1,110 @@
 import socket
 import json
 import time
-import random
 
 HOST = "127.0.0.1"
 PORT = 5000
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind((HOST, PORT))
 
-print("QNX ECU UDP server running...")
+print("QNX ECU running...")
 
-# Vehicle state
 speed = 0.0
-throttle = 0
-brake = 0
-steering = 0
-gear = "D"  # NEW
+throttle = 0.0
+brake = 0.0
+steering = 0.0
+gear = "D"
 
-safe_mode = False
-snow_mode = False  
+snow_mode = False
+chaos_mode = None
 
 client_addr = None
-last_heartbeat = time.time()
-
-# RTOS task timers
-last_brake_task = time.time()
-last_throttle_task = time.time()
-last_steering_task = time.time()
-
-LOG_FILE = "vehicle_log.txt"
-
-
-def log_event(msg):
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{time.time()} : {msg}\n")
-
 
 while True:
 
-    # RECEIVE UDP MESSAGES
     try:
         sock.settimeout(0.001)
         data, addr = sock.recvfrom(1024)
-
-        if random.random() < 0.1:
-            continue
-
         client_addr = addr
-        message = json.loads(data.decode())
 
-        msg_type = message["type"]
+        msg = json.loads(data.decode())
 
-        if msg_type == "ThrottleInput":
-            throttle = message["data"]["Percentage"]
+        if msg.get("origin") == "UserInput":
 
-        elif msg_type == "BrakingInput":
-            brake = message["data"]["Percentage"]
+            subsys = msg.get("subsys")
+            data = msg.get("data", {})
 
-        elif msg_type == "SteeringInput":
-            steering = message["data"]["Angle"]
+            if subsys == "Brake":
+                brake = data.get("brake", {}).get("level", 0)
 
-        elif msg_type == "SnowModeToggle":
-            snow_mode = message["data"]["Enabled"]
+            elif subsys == "Driving":
+                steering = data.get("steering", {}).get("angle", 0)
+                throttle = data.get("throttle", {}).get("level", 0)
+                gear = data.get("gear", "D")
+ 
+            elif subsys == "Mode":
+                snow_mode = data.get("snow", False)
+                chaos_mode = data.get("chaos")
 
-        elif msg_type == "GearChange":   # NEW
-            gear = message["data"]["Gear"]
-            print(f"[ECU] Gear set to {gear}")
-
-        elif msg_type == "Heartbeat":
-            last_heartbeat = time.time()
-
-    except socket.timeout:
+    except:
         pass
 
-    now = time.time()
 
-    # PRIORITY 1: BRAKE TASK
-    if now - last_brake_task > 0.01:
-
+    # BRAKE
+    if chaos_mode == "brake":
+        pass
+    else:
         if brake > 0:
             throttle = 0
 
-        # Brake always reduces magnitude of speed
         if speed > 0:
-            speed -= (brake / 100) * 12
+            speed -= brake * 12
         elif speed < 0:
-            speed += (brake / 100) * 12
+            speed += brake * 12
 
-        last_brake_task = now
+    # THROTTLE
+    accel = throttle * (3 if snow_mode else 6)
 
-    # PRIORITY 2: THROTTLE TASK
-    if now - last_throttle_task > 0.03:
+    if gear == "D":
+        speed += accel
+    else:
+        speed -= accel
 
-        accel = (throttle / 100) * (3 if snow_mode else 6)
-
-        if gear == "D":
-            speed += accel
-        elif gear == "R":
-            speed -= accel  # reverse direction
-
-        last_throttle_task = now
-
-    # PRIORITY 3: STEERING TASK
-    if now - last_steering_task > 0.06:
-
-        if abs(speed) > 80:
-            steering = steering * 0.5
-
-        last_steering_task = now
-
-    # Friction
     if speed > 0:
         speed -= 0.2
     elif speed < 0:
         speed += 0.2
 
-    # Clamp speed
-    if speed > 120:
-        speed = 120
-    if speed < -40:  # reverse limit
-        speed = -40
+    speed = max(min(speed, 120), -40)
 
-    # Snow mode cap
     if snow_mode:
-        if speed > 50:
-            speed = 50
-        if speed < -20:
-            speed = -20
+        speed = max(min(speed, 50), -20)
 
-    # HEALTH MONITOR
-    if time.time() - last_heartbeat > 3:
-        safe_mode = True
-        throttle = 0
+    # WARNINGS
+    warnings = []
 
-    if safe_mode and abs(speed) > 30:
-        speed = 30 if speed > 0 else -30
+    if chaos_mode == "brake":
+        warnings.append("Brake system failure")
 
-    # SENSOR STATUS
-    wheel_ok = True
-    if int(time.time()) % 12 == 0:
-        wheel_ok = False
+    if abs(speed) > 100:
+        warnings.append("High speed")
 
-    # TELEMETRY
     telemetry = {
         "type": "VehicleTelemetry",
         "data": {
             "Speed": round(speed, 1),
-            "Throttle": throttle,
-            "Brake": brake,
-            "SteeringAngle": steering,
-            "SafeMode": safe_mode,
-            "SnowMode": snow_mode,
-            "Gear": gear   # NEW
+            "Mode": {
+                "Snow": snow_mode,
+                "Chaos": chaos_mode
+            },
+            "Warnings": warnings
         },
         "timestamp": time.time()
     }
 
     if client_addr:
         sock.sendto(json.dumps(telemetry).encode(), client_addr)
-
-    log_event(
-        f"speed={speed} throttle={throttle} brake={brake} gear={gear} snow_mode={snow_mode}"
-    )
 
     time.sleep(0.01)
