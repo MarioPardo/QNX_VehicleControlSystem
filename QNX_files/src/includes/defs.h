@@ -43,6 +43,7 @@ typedef struct { float speed; float brake_level; } BrakeUpdate;
 typedef struct { float value; } ThrottleUpdate;
 typedef struct { float angle; } SteeringUpdate;
 
+<<<<<<< HEAD
 
 typedef struct {
     int subsys;
@@ -51,6 +52,19 @@ typedef struct {
         ThrottleUpdate throttle;
         SteeringUpdate steering;
     } data;
+=======
+// This i the structure tht all subprocesse are going to use to communicate to either telemetry or vehicle_sender
+// Dont worry about what data is empty just ensure all fields are set to zero upon initializing and then set to zero , the functions inside vehicle_sender and telem.c will know what to pick
+// Ensure to set non used fields to zero
+typedef struct {
+    int subsys;
+    char brake_warnings [10][64];
+    char speed_warnings [10][64];
+    int  brake_warning_count; 
+    int  speed_warning_count; 
+    double speed;
+    int snowmode;
+>>>>>>> c5ae921 (Adding changes to cater for new vehicle sender.c)
 } ProcessMsg;
 
 // Braking -> warnings 
