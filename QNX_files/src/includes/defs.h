@@ -103,9 +103,11 @@ typedef struct
     double percentage;      // this is the brake level input passed in as a percentage 
     double angle;           // this is the steering angle input from  dashboard
     int enabled;            // this is for the snowmode 
+    double throttle;
     double speed;           // current speed from sim in webots  
     double temp;            // temp value which wil be coming from webots
     char toggleGear [2];         //[ D = 0 , R = 1]
+    int chaos_active;       // Indicator of chaos mode
 
 }message ;
 

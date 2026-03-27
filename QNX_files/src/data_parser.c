@@ -76,10 +76,14 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
     // Default values
 
     memset(p, 0, sizeof(*p));
-    p->msg.percentage = -999;
-    p->msg.angle      = -999;
-    p->msg.enabled    = 0; //false for snowmode
-    p->msg.speed      = -999;
+   p->msg.percentage   = -999.0;
+    p->msg.throttle     = -999.0;
+    p->msg.angle        = -999.0;
+    p->msg.enabled      = 0;    //false for snowmode
+    p->msg.speed        = -999.0;
+    p->msg.temp         = -999.0;
+    p->msg.chaos_active = 0;
+    strncpy(p->msg.toggleGear, "D", sizeof(p->msg.toggleGear) - 1);
 
     cJSON *root = cJSON_Parse(json_str);
     if (!root) {
@@ -90,31 +94,93 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
     cJSON *subsys = cJSON_GetObjectItemCaseSensitive(root, "subsys");
     cJSON *data = cJSON_GetObjectItemCaseSensitive(root, "data");
 
-    if (cJSON_IsString(origin))
+    if (cJSON_IsString(origin)){
         strncpy(p->origin, origin->valuestring, sizeof(p->origin) - 1);
         p->origin[sizeof(p->origin) - 1] = '\0';
+    }
 
-    if (cJSON_IsString(subsys))
+    if (cJSON_IsString(subsys)){
         strncpy(p->subsys, subsys->valuestring, sizeof(p->subsys) - 1);
         p->subsys[sizeof(p->subsys) - 1] = '\0';
-
-    if (cJSON_IsObject(data)) {
-        // Dashboard incoming inputs / data
-        cJSON *percentage = cJSON_GetObjectItemCaseSensitive(data, "Percentage");
-        cJSON *angle      = cJSON_GetObjectItemCaseSensitive(data, "Angle");
-        cJSON *enabled    = cJSON_GetObjectItemCaseSensitive(data, "Enabled");
-
-        if (cJSON_IsNumber(percentage)) p->msg.percentage = percentage->valuedouble;
-        if (cJSON_IsNumber(angle))      p->msg.angle      = angle->valuedouble;
-        if (cJSON_IsBool(enabled))      p->msg.enabled    = cJSON_IsTrue(enabled);
-
-        // webots/sim incoming inputs / data
-        cJSON *speed = cJSON_GetObjectItemCaseSensitive(data, "speed");
-        if (cJSON_IsNumber(speed))      p->msg.speed      = speed->valuedouble;
-
-        //In here it just populates what was present in the data sent , the other fields remain empty or sentinels
-        //Omitting fields entirely causes a crash so other fields will be empty , the processes wont be reading them anyways.
     }
+
+    if (!cJSON_IsObject(data)) {
+        cJSON_Delete(root);
+        return;
+    }
+
+    
+    // ----------------------------------------------------------
+    // BRAKE:  { "subsys": "Brake", "data": { "brake": { "level": 0.4 } } }
+    // ----------------------------------------------------------
+    if (strcmp(p->subsys, "Brake") == 0) {
+
+        cJSON *brake = cJSON_GetObjectItemCaseSensitive(data, "brake");
+        if (cJSON_IsObject(brake)) {
+            cJSON *level = cJSON_GetObjectItemCaseSensitive(brake, "level");
+            if (cJSON_IsNumber(level))
+                p->msg.percentage = level->valuedouble;
+        }
+    }
+
+    // ----------------------------------------------------------
+    // DRIVING: { "subsys": "Driving", "data": { "steering": { "angle": 0.2 },
+    //                                            "throttle": { "level": 0.6 },
+    //                                            "gear": "D" } }
+    // ----------------------------------------------------------
+    else if (strcmp(p->subsys, "Driving") == 0) {
+
+        cJSON *steering = cJSON_GetObjectItemCaseSensitive(data, "steering");
+        if (cJSON_IsObject(steering)) {
+            cJSON *angle = cJSON_GetObjectItemCaseSensitive(steering, "angle");
+            if (cJSON_IsNumber(angle))
+                p->msg.angle = angle->valuedouble;
+        }
+
+        cJSON *throttle = cJSON_GetObjectItemCaseSensitive(data, "throttle");
+        if (cJSON_IsObject(throttle)) {
+            cJSON *level = cJSON_GetObjectItemCaseSensitive(throttle, "level");
+            if (cJSON_IsNumber(level))
+                p->msg.throttle = level->valuedouble;
+        }
+
+        cJSON *gear = cJSON_GetObjectItemCaseSensitive(data, "gear");
+        if (cJSON_IsString(gear)) {
+            strncpy(p->msg.toggleGear, gear->valuestring, sizeof(p->msg.toggleGear) - 1);
+            p->msg.toggleGear[sizeof(p->msg.toggleGear) - 1] = '\0';
+        }
+    }
+
+    // ----------------------------------------------------------
+    // MODE: { "subsys": "Mode", "data": { "snow": true, "chaos": "brake"|null } }
+    // ----------------------------------------------------------
+    else if (strcmp(p->subsys, "Mode") == 0) {
+
+        cJSON *snow = cJSON_GetObjectItemCaseSensitive(data, "snow");
+        if (cJSON_IsBool(snow))
+            p->msg.enabled = cJSON_IsTrue(snow);
+        else if (cJSON_IsNumber(snow))
+            p->msg.enabled = (snow->valueint != 0);
+
+        cJSON *chaos = cJSON_GetObjectItemCaseSensitive(data, "chaos");
+        if (cJSON_IsString(chaos) && strlen(chaos->valuestring) > 0)
+            p->msg.chaos_active = 1;
+        // if null → chaos_active stays 0
+    }
+
+    // ----------------------------------------------------------
+    // WEBOTS/SIM:  { "origin": "VehicleInput", "data": { "speed": 12.3, "temp": 22.1 } }
+    // ----------------------------------------------------------
+    else {
+        cJSON *speed = cJSON_GetObjectItemCaseSensitive(data, "speed");
+        if (cJSON_IsNumber(speed))
+            p->msg.speed = speed->valuedouble;
+
+        cJSON *temp = cJSON_GetObjectItemCaseSensitive(data, "temp");
+        if (cJSON_IsNumber(temp))
+            p->msg.temp = temp->valuedouble;
+    }
+
 
     cJSON_Delete(root);
 }
