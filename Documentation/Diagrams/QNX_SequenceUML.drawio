@@ -1,6 +1,14 @@
 <mxfile host="65bd71144e">
     <diagram id="ZU3tbkcIkfO34ZH_zb1j" name="SubsystemRestart">
+<<<<<<< HEAD
+<<<<<<< HEAD
         <mxGraphModel dx="1546" dy="496" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+=======
+        <mxGraphModel dx="2049" dy="854" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+>>>>>>> 8580147 (Initial UML Sequence and Component Diagrams)
+=======
+        <mxGraphModel dx="1546" dy="496" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+>>>>>>> a96e28e (update UML requence for process restart)
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -54,9 +62,18 @@
                 <mxCell id="5" value="Subsystem" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};" vertex="1" parent="1">
                     <mxGeometry x="150" y="130" width="100" height="690" as="geometry"/>
                 </mxCell>
+<<<<<<< HEAD
+<<<<<<< HEAD
                 <mxCell id="UzGudIP8GKitB0EcIIeV-41" value="" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="5">
                     <mxGeometry x="45" y="240" width="10" height="450" as="geometry"/>
                 </mxCell>
+=======
+>>>>>>> 8580147 (Initial UML Sequence and Component Diagrams)
+=======
+                <mxCell id="UzGudIP8GKitB0EcIIeV-41" value="" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="5">
+                    <mxGeometry x="45" y="240" width="10" height="450" as="geometry"/>
+                </mxCell>
+>>>>>>> a96e28e (update UML requence for process restart)
                 <mxCell id="UzGudIP8GKitB0EcIIeV-5" value="*Chaos*" style="html=1;verticalAlign=bottom;startArrow=circle;startFill=1;endArrow=open;startSize=6;endSize=6;curved=0;rounded=0;jumpSize=4;" edge="1" parent="1">
                     <mxGeometry width="80" relative="1" as="geometry">
                         <mxPoint x="120" y="360" as="sourcePoint"/>
@@ -164,6 +181,10 @@
                 <mxCell id="UzGudIP8GKitB0EcIIeV-37" value="Respawn Subsystem" style="text;strokeColor=none;align=center;fillColor=none;html=1;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
                     <mxGeometry x="170" y="891" width="60" height="30" as="geometry"/>
                 </mxCell>
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> a96e28e (update UML requence for process restart)
                 <mxCell id="UzGudIP8GKitB0EcIIeV-39" value="" style="endArrow=cross;html=1;endFill=0;" edge="1" parent="1">
                     <mxGeometry width="50" height="50" relative="1" as="geometry">
                         <mxPoint x="195" y="440" as="sourcePoint"/>
@@ -175,6 +196,11 @@
                         <mxPoint x="25" as="offset"/>
                     </mxGeometry>
                 </mxCell>
+<<<<<<< HEAD
+=======
+>>>>>>> 8580147 (Initial UML Sequence and Component Diagrams)
+=======
+>>>>>>> a96e28e (update UML requence for process restart)
             </root>
         </mxGraphModel>
     </diagram>

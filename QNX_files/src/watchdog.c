@@ -84,7 +84,6 @@ int spawn_subsystem(const char *path, const char *name,
                     int table_index, int response_time_ms, char* subsystemName) {
 
     //TODO remove extra subsystemName param
-
     printf("[WATCHDOG]   -- Spawning %s\n", subsystemName);
 
     pid_t pid = spawnl(P_NOWAIT, path, name, NULL);
@@ -211,7 +210,7 @@ void beginSubsystems() {
 int main()
 {
 	printf("[WATCHDOG] Hello from Watchdog!\n");
-
+    
     //  
     memset(processTable, 0, sizeof(processTable));
     for (int i = 0; i < MAX_SUBSYSTEMS; i++)

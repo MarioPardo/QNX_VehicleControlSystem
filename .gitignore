@@ -7,6 +7,10 @@
 
 # Ignores the actual executable binary
 QNX_files/main
+QNX_files/braking_system
+QNX_files/main_supervisor
+QNX_files/watchdog
+
 
 # Ignores common QNX/Momentics architecture-specific output folders
 **/armle-v7*/
@@ -25,3 +29,7 @@ QNX_files/main
 *.a
 *.tmp
 .DS_Store
+
+#
+.vscode/settings.json
+demo_connection.py

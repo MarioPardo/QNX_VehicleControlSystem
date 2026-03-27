@@ -206,7 +206,6 @@ int main(int argc, char *argv[])
 	BrakingContext brakeContext;
     braking_system_setup_vehicleinfo(&brakeContext);
 
-
     // register so other subsystems can find us
     attach = name_attach(NULL, "braking_system", 0);
     if (!attach) {
@@ -263,6 +262,7 @@ int main(int argc, char *argv[])
                 chaosMode();
             
         } else if (rcvid > 0) {
+
             receiveMessage(&brakeContext, rcvid);
         }
     }
