@@ -41,27 +41,21 @@ void vc_init(vehicle_controls *vc){
 
 // telemetry struct → JSON to send to Python
 char *telemetry_to_json(telemetry_packet *t) {
-    cJSON *root = cJSON_CreateObject();
-    cJSON *data = cJSON_CreateObject();
-    cJSON *warnings_arr = cJSON_CreateArray();
-    
-    cJSON_AddStringToObject(root, "type",      t->type);
-    
+    cJSON *root     = cJSON_CreateObject();
+    cJSON *data     = cJSON_CreateObject();
+    cJSON *mode     = cJSON_CreateObject();       /
+    cJSON *warnings = cJSON_CreateArray();
 
-    cJSON_AddNumberToObject(data, "Speed",         t->tel.speed);
-    cJSON_AddBoolToObject  (data, "SnowMode",      t->tel.snow_mode);
+    cJSON_AddStringToObject(root, "type", t->type);
 
-    //This will be for the warnings part of it 
-    //Will involve parsing the list of warnings into an array of strings then idk ho we will work on that , dashboard to decide
+    cJSON_AddNumberToObject(data, "Speed", t->tel.speed);
 
-    // add warnings array to JSON
-    
-    for (int i = 0; i < t->tel.warning_count; i++) {
-        cJSON_AddItemToArray(warnings_arr, 
-                            cJSON_CreateString(t->tel.warnings[i]));
-    }
-    cJSON_AddItemToObject(data, "Warnings", warnings_arr);
+    cJSON_AddBoolToObject(mode, "Snow", t->tel.snow_mode);  // ← nested under Mode in dashboard 
+    cJSON_AddItemToObject(data, "Mode", mode);
 
+    for (int i = 0; i < t->tel.warning_count; i++)
+        cJSON_AddItemToArray(warnings, cJSON_CreateString(t->tel.warnings[i]));
+    cJSON_AddItemToObject(data, "Warnings", warnings);
 
     cJSON_AddItemToObject(root, "data", data);
     char *out = cJSON_PrintUnformatted(root);

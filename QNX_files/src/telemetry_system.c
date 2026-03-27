@@ -29,6 +29,28 @@ void cleanup_telemetry(void) {
     name_detach(attach, 0);
 }
 
+// ----- TEST FUNCTION - remove once processes are sending real data -----
+void build_test_telemetry(telemetry_msg *state, int tick) {
+
+    // Fake speed that ramps up and down
+    state->speed = (float)(tick % 120);
+
+    // Toggle snow mode every 5 ticks
+    state->snow_mode = (tick / 5) % 2;
+
+    // Cycle through some fake warnings
+    state->warning_count = 0;
+    if (tick % 10 == 0) {
+        strncpy(state->warnings[0], "Low brake pressure", 63);
+        state->warning_count = 1;
+    }
+    if (tick % 15 == 0) {
+        strncpy(state->warnings[1], "Engine temp high", 63);
+        state->warning_count = 2;
+    }
+}
+// -----------------------------------------------------------------------
+
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");
 
@@ -89,6 +111,9 @@ int main(int argc, char *argv[]) {
     ProcessMsg msg;  // reuse for all incoming 
     
     struct _pulse pulse;
+
+    //Test variable
+    int tick = 0;
     
     // Break into separate functions bext time -Harun TODO
     while (1) {
@@ -99,8 +124,13 @@ int main(int argc, char *argv[]) {
              if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) 
              {
 
+                // TEMP: Adds fake data to populate state for pipeline testing
+                build_test_telemetry(&state, tick++);
+                // ↑ remove this line once real process data is flowing
+
+
                 //TODO should be two separate functions below
-                {
+                
                 // build telemetry packet to be sent to dashboard with data so far
                 telemetry_packet t;
                 memset(&t, 0, sizeof(t));
@@ -110,6 +140,7 @@ int main(int argc, char *argv[]) {
                 strcpy(t.type, "VehicleTelemetry");
                 t.tel.speed          = state.speed;
                 t.tel.snow_mode         = state.snow_mode;
+                t.tel.warning_count = state.warning_count;  //Not needed in python side but will add still
 
                 //Copying over warnings onto the t packet to be sent  
                 
@@ -123,7 +154,7 @@ int main(int argc, char *argv[]) {
                 free(json);
 
                 printf("[TELEMETRY] packet sent to Python\n");
-                }
+                
 
                 // check in with watchdog
                 MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
