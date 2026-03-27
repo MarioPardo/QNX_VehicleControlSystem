@@ -37,18 +37,20 @@ void socket_setup();
 void receiver_setup();
 void sender_setup();
 
-// Use this for processes sending data to telemetry.c
-// This is the expected data archtype that the subsystems should be sending to telemetry.c with their potential updates
+
+// Dashboard -> QNX Messaging
 typedef struct { float speed; float brake_level; } BrakeUpdate;
 typedef struct { float value; } ThrottleUpdate;
 typedef struct { float angle; } SteeringUpdate;
 
-// Ensure to set non used fields to zero
+
 typedef struct {
     int subsys;
-    char brake_warnings [10][64];
-    char speed_warnings [10][64];
-    double speed;
+    union {
+        BrakeUpdate    brake;
+        ThrottleUpdate throttle;
+        SteeringUpdate steering;
+    } data;
 } ProcessMsg;
 
 // Braking -> warnings 
