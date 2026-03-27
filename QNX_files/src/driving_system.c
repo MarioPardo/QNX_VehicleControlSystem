@@ -14,6 +14,7 @@ typedef struct {
     float maxThrottleLevel;        // 0..1
     float currentSteeringAngle;    // degrees (or whatever the sim uses)
     bool  snowMode;
+    char  gear[2];                 // "D" or "R"
 } DriveContext;
 
 int sockfd;
@@ -29,10 +30,12 @@ static void driving_system_setup_driveinfo(DriveContext* context)
     context->maxThrottleLevel = 1.0f;
     context->currentSteeringAngle = 0.0f;
     context->snowMode = false;
+    context->gear[0] = 'D';
+    context->gear[1] = '\0';
     printf("[DRIVING SYSTEM] Info Setup Complete\n");
 }
 
-static void processUserDriveInput(DriveContext* context, float throttleLevel, float steeringAngle, bool snowMode)
+static void processUserDriveInput(DriveContext* context, float throttleLevel, float steeringAngle, bool snowMode, const char* gear)
 {
     context->snowMode = snowMode;
 
@@ -45,11 +48,15 @@ static void processUserDriveInput(DriveContext* context, float throttleLevel, fl
     // Clamp throttle to [0, maxThrottleLevel]
     context->currentThrottleLevel = fmaxf(0.0f, fminf(throttleLevel, context->maxThrottleLevel));
 
-    printf("[DRIVING SYSTEM] User input -> throttle: %.2f (max %.2f) steering: %.2f snowMode: %s\n",
+    context->gear[0] = gear[0];
+    context->gear[1] = '\0';
+
+    printf("[DRIVING SYSTEM] User input -> throttle: %.2f (max %.2f) steering: %.2f snowMode: %s gear: %s\n",
            context->currentThrottleLevel,
            context->maxThrottleLevel,
            context->currentSteeringAngle,
-           context->snowMode ? "true" : "false");
+           context->snowMode ? "true" : "false",
+           context->gear);
 }
 
 static void processVehicleDriveData(DriveContext* context, float speed_kmh)
@@ -123,7 +130,7 @@ static void receiveMessage(DriveContext* driveContext, int rcvid, msg_packet* pk
         return;
 
     if (strcmp(pkt->origin, "UserInput") == 0) {
-        processUserDriveInput(driveContext, (float)pkt->msg.throttle, (float)pkt->msg.angle, (bool)pkt->msg.enabled);
+        processUserDriveInput(driveContext, (float)pkt->msg.throttle, (float)pkt->msg.angle, (bool)pkt->msg.enabled, pkt->msg.toggleGear);
     } else if (strcmp(pkt->origin, "VehicleData") == 0) {
         processVehicleDriveData(driveContext, (float)pkt->msg.speed);
     }
