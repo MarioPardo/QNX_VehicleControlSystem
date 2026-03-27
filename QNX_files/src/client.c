@@ -64,28 +64,28 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         //From here then on send the data to appropriate processes , braking etc 
         if (strcmp(p.subsys, "Brake") == 0) {
             MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
-            printf("[CLIENT] : Received Braking data from Dashboard ");
+            printf("[CLIENT] : Received Braking data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Driving") == 0) {
             
             MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
-            printf("[CLIENT] : Received driving data from Dashboard ");
+            printf("[CLIENT] : Received driving data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Mode") == 0) {
             
             // TODO Mode process for this to be implemented
-            printf("[CLIENT] : Received Mode data from Dashboard ");
+            printf("[CLIENT] : Received Mode data from Dashboard \n");
         }
 
 
         // Testing comment to identify source of data 
 
         if (strcmp(p.origin, "VehicleData") == 0) {
-            printf("[CLIENT] : Received Vehicle Data from Webots ");
+            printf("[CLIENT] : Received Vehicle Data from Webots \n");
 
         }
         else if (strcmp(p.origin, "UserInput") == 0) {
-            printf("[CLIENT] : Received User input data from dashboard");
+            printf("[CLIENT] : Received User input data from dashboard \n");
         } 
 
     }      
