@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
+import pyqtgraph as pg
+
 IP = "192.168.56.126"
 
 
@@ -120,6 +122,36 @@ class Dashboard(QWidget):
         self.steering_slider.setMaximum(540)
         self.steering_slider.valueChanged.connect(self.update_steering)
 
+        # DATA FOR PLOTS
+        self.packet_times = []
+        self.time_data = []
+        self.speed_data = []
+        self.freq_data = []
+        self.start_time = time.time()
+
+        # PLOTS
+        self.plot_widget = pg.GraphicsLayoutWidget()
+
+        # SPEED PLOT
+        self.speed_plot = self.plot_widget.addPlot(title="Speed (km/h)")
+        self.speed_plot.setLabel('left', 'Speed', units='km/h')
+        self.speed_plot.setLabel('bottom', 'Time', units='s')
+        self.speed_plot.showGrid(x=True, y=True)
+        self.speed_curve = self.speed_plot.plot(pen='c')
+
+        self.plot_widget.nextRow()
+
+        # FREQUENCY PLOT
+        self.freq_plot = self.plot_widget.addPlot(title="Telemetry Frequency (Hz)")
+        self.freq_plot.setLabel('left', 'Packets/sec', units='Hz')
+        self.freq_plot.setLabel('bottom', 'Time', units='s')
+        self.freq_plot.showGrid(x=True, y=True)
+        self.freq_curve = self.freq_plot.plot(pen='y')
+
+        self.plot_timer = QTimer()
+        self.plot_timer.timeout.connect(self.update_plots)
+        self.plot_timer.start(100)
+
         # LAYOUT
         main_layout = QVBoxLayout()
 
@@ -144,6 +176,8 @@ class Dashboard(QWidget):
         main_layout.addWidget(QLabel("Steering"))
         main_layout.addWidget(self.steering_slider)
 
+        main_layout.addWidget(self.plot_widget)
+
         self.setLayout(main_layout)
 
         # Dark theme
@@ -164,6 +198,8 @@ class Dashboard(QWidget):
         self.health_timer = QTimer()
         self.health_timer.timeout.connect(self.check_connection)
         self.health_timer.start(1000)
+
+        
 
     # KEYBOARD
     def keyPressEvent(self, event):
@@ -279,6 +315,25 @@ class Dashboard(QWidget):
 
             self.last_packet_time = time.time()
 
+        now = time.time()
+
+        # track packets (last 1 second)
+        self.packet_times.append(now)
+        self.packet_times = [t for t in self.packet_times if now - t <= 1]
+
+        freq = len(self.packet_times)
+
+        current_time = now - self.start_time
+
+        self.time_data.append(current_time)
+        self.speed_data.append(data["Speed"])
+        self.freq_data.append(freq)
+
+        MAX = 200
+        self.time_data = self.time_data[-MAX:]
+        self.speed_data = self.speed_data[-MAX:]
+        self.freq_data = self.freq_data[-MAX:]
+
     def check_connection(self):
         if time.time() - self.last_packet_time > 3:
             self.health_label.setText("QNX Control System DISCONNECTED")
@@ -315,6 +370,9 @@ class Dashboard(QWidget):
         print("[CHAOS] Injecting brake failure for 3 seconds")
         self.chaos_until = time.time() + 3
 
+    def update_plots(self):
+        self.speed_curve.setData(self.time_data, self.speed_data)
+        self.freq_curve.setData(self.time_data, self.freq_data)
 
 app = QApplication(sys.argv)
 window = Dashboard()
