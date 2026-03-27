@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <math.h>
 
 #include <sys/neutrino.h>
 #include <sys/siginfo.h>
@@ -62,9 +63,10 @@ typedef struct {
     int  brake_warning_count; 
     int  speed_warning_count; 
     double speed;
-    double brake_level;    // ← add this
-    double throttle_level; // ← and this, driving will need it
-    double steering_angle; // ← and this, steering will need it
+    double brake_level;    
+    double throttle_level; 
+    double steering_angle; 
+    char toggleGear [2];         //[ D = 0 , R = 1]
     int snowmode;
 >>>>>>> c5ae921 (Adding changes to cater for new vehicle sender.c)
 } ProcessMsg;
@@ -90,20 +92,22 @@ typedef enum {
 #define SYS_DRIVE_RESPONSETIME_MS 3000
 #define SYS_CLIENT_RESPONSETIME_MS 1000
 #define SYS_TELEMETRY_RESPONSETIME_MS 2000
+#define SYS_VEHICLE_SENDER_RESPONSETIME_MS 2000
 
 //critical times : how many MS since last check in such that we kill and restart process
 #define SYS_BRAKING_CRITICALTIME_MS 10000 
 #define SYS_DRIVE_CRITICALTIME_MS 6000
 #define SYS_CLIENT_CRITICALTIME_MS 2000 
 #define SYS_TELEMETRY_CRITICALTIME_MS 4000 
-
+#define SYS_VEHICLE_SENDER_CRITICALTIME_MS 4000 
 
 typedef enum {
     SUBSYS_BRAKE=0,
     SUBSYS_DRIVE=1,
     SUBSYS_STEERING=2,
     SUBSYS_TELEMETRY=3,
-    SUBSYS_CLIENT=4
+    SUBSYS_CLIENT=4,
+    SUBSYS_VEHICLE_SENDER=5
 } SubsystemIDs;
 
 typedef enum {

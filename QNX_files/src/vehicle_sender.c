@@ -24,6 +24,26 @@ void cleanup_vehicle_sender(void) {
     name_detach(attach, 0);
 }
 
+// ----- TEST FUNCTION - remove once processes are sending real data -----
+void build_test_vehicle_controls(vehicle_controls *state, int tick) {
+
+    // throttle ramps up over 10 ticks then resets
+    state->data.throttle_level = (double)(tick % 10) / 10.0;
+
+    // brake pulses on and off every 5 ticks
+    state->data.brake_level = (tick % 5 == 0) ? 0.8 : 0.0;
+
+    // steering sweeps left to right
+    state->data.steering_level = sin((double)tick * 0.3);  // needs #include <math.h>
+
+    // snow mode toggles every 8 ticks
+    state->data.snow_mode = (tick / 8) % 2;
+
+    // gear stays D for now
+    strncpy(state->data.toggleGear, "D", sizeof(state->data.toggleGear) - 1);
+}
+// -----------------------------------------------------------------------
+
 int main(int argc, char *argv[]) {
     printf("[VEHICLE_SENDER] Starting...\n");
 
@@ -77,6 +97,7 @@ int main(int argc, char *argv[]) {
 
     ProcessMsg msg;
     struct _pulse pulse;
+    int tick=0;
 
     while (1) {
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
@@ -85,6 +106,10 @@ int main(int argc, char *argv[]) {
             // timer fired — package current state and send to Webots
             if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
 
+                // TEMP: fake data for pipeline testing
+                build_test_vehicle_controls(&state, tick++);
+                //  remove once real process data flows in
+
                 char *json = sim_data_to_json(&state);
                 sendto(sockfd, json, strlen(json), 0,
                        (struct sockaddr *)&dest, sizeof(dest));
@@ -92,7 +117,7 @@ int main(int argc, char *argv[]) {
                 free(json);
 
                 // check in with watchdog
-                MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY); 
+                MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_VEHICLE_SENDER); 
                 // TODO: add SUBSYS_VEHICLE_SENDER to SubsystemIDs enum in defs.h
             }
 
@@ -109,6 +134,8 @@ int main(int argc, char *argv[]) {
                 case SUBSYS_DRIVE:
                     printf("[VEHICLE_SENDER] Drive update received\n");
                     state.data.throttle_level = msg.throttle_level;
+
+                    strncpy(state.data.toggleGear, msg.toggleGear, sizeof(state.data.toggleGear) - 1);
                     break;
 
                 case SUBSYS_STEERING:
