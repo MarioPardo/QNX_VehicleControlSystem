@@ -115,23 +115,18 @@ static void sendWatchdogHealthStatus(int watchdog_coid)
     MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_DRIVE);
 }
 
-static void receiveMessage(DriveContext* driveContext, int rcvid)
+static void receiveMessage(DriveContext* driveContext, int rcvid, msg_packet* pkt)
 {
-   //Check if message is Vehicle Data (from simulator)  or UserInput(from dashboard)
+    MsgReply(rcvid, 0, NULL, 0);
 
+    if (strcmp(pkt->subsys, "Driving") != 0)
+        return;
 
-    //if VehicleData
-
-        //parse message
-        // send data to ProcessVehicleDriveDataData;
-
-
-
-    //if UserInput
-
-        //parse input
-
-        //send data to ProcessUserDriveInput
+    if (strcmp(pkt->origin, "UserInput") == 0) {
+        processUserDriveInput(driveContext, (float)pkt->msg.throttle, (float)pkt->msg.angle, (bool)pkt->msg.enabled);
+    } else if (strcmp(pkt->origin, "VehicleData") == 0) {
+        processVehicleDriveData(driveContext, (float)pkt->msg.speed);
+    }
 }
 
 /// Process Handling ///////
@@ -203,22 +198,25 @@ int main(int argc, char *argv[])
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
-    struct _pulse pulse;
+    union {
+        struct _pulse pulse;
+        msg_packet    pkt;
+    } buf;
+
     while (1)
     {
-        int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
+        int rcvid = MsgReceive(attach->chid, &buf, sizeof(buf), NULL);
 
         if (rcvid == 0) {
-            if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
+            if (buf.pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
                 sendWatchdogHealthStatus(watchdog_coid);
                 dispatchDriveData(&driveContext, telemetry_coid, vehiclesender_coid);
             }
-            if (pulse.code == PULSE_CHAOSMODE) {
-                // Optional: you can add chaos behavior later.
+            if (buf.pulse.code == PULSE_CHAOSMODE) {
+               //chaosMode()
             }
         } else if (rcvid > 0) {
-            receiveMessage(&driveContext, rcvid);
-            MsgReply(rcvid, EOK, NULL, 0);
+            receiveMessage(&driveContext, rcvid, &buf.pkt);
         }
     }
 

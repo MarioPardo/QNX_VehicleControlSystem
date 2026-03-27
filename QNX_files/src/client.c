@@ -64,17 +64,17 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         //From here then on send the data to appropriate processes , braking etc 
         if (strcmp(p.subsys, "Brake") == 0) {
             MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
-            printf("[CLIENT] : Received Braking data from Dashboard \n");
+           // printf("[CLIENT] : Received Braking data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Driving") == 0) {
             
             MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
-            printf("[CLIENT] : Received driving data from Dashboard \n");
+           // printf("[CLIENT] : Received driving data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Mode") == 0) {
             
             // TODO Mode process for this to be implemented
-            printf("[CLIENT] : Received Mode data from Dashboard \n");
+           // printf("[CLIENT] : Received Mode data from Dashboard \n");
         }
 
 
@@ -85,7 +85,7 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
 
         }
         else if (strcmp(p.origin, "UserInput") == 0) {
-            printf("[CLIENT] : Received User input data from dashboard \n");
+          //  printf("[CLIENT] : Received User input data from dashboard \n");
         } 
 
     }      

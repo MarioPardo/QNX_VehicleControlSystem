@@ -47,7 +47,7 @@ void processUserBrakeInput(BrakingContext* context, float brakeLevel)
     context->currentBrakeLevel = newBrakeLevel;
 
     //print received data and new brake level
-    printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f\n", brakeLevel, context->currentBrakeLevel);
+    printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f \n", brakeLevel, context->currentBrakeLevel);
 }
 
 
@@ -164,7 +164,6 @@ void sendWatchdogHealthStatus(int watchdog_coid)
         printf("[BRAKE SYSTEM] cannot find CHID of watchdog \n");
         return;
     }
-    printf("[BRAKE SYSTEM] Checking in! \n");
 	MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_BRAKE);
 }
 
