@@ -252,7 +252,6 @@ int main(int argc, char *argv[])
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
 
     struct itimerspec itime;
-
     itime.it_value.tv_sec = SYS_BRAKING_RESPONSETIME_MS / 1000;
     itime.it_value.tv_nsec = (SYS_BRAKING_RESPONSETIME_MS % 1000) * 1000000;
     itime.it_interval = itime.it_value;

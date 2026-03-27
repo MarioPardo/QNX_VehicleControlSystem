@@ -66,7 +66,6 @@ typedef enum {
 
 /// Subsystem Info
 
-// Already defined in defs as used outside file as well
 //response times : how often we expect them to check in * 1000 for debug
 #define SYS_BRAKING_RESPONSETIME_MS 5000
 #define SYS_DRIVE_RESPONSETIME_MS 3000
