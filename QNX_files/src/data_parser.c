@@ -1,20 +1,5 @@
 #include "includes/defs.h"
 
-// parser shouldnt even check the type 
-// Parser checks for subsystem 
-// subsytem works . 
-// parser still has to convert the datatype though , i dont think its wise to just move json files and convert again , might as well convert once and leave the pther fucntions purely for processing 
-
-
-
-
-
-// Example of data , schema basically 
-//  Subsytem : ( Im thinking this meant whwere it belongs essentially )
-//  Type :  (This should be the message type as in the fake ecu for reference)
-//  Data : ( This contains the message being parsed in could be the messages etc)
-
-
 // Harun - Will use this in other files to initialize struct - to ensure whatever isnt used is auto set to default
 // Might not use at the moment
 void packet_init(msg_packet *c)
@@ -222,5 +207,5 @@ char* sim_data_to_json(vehicle_controls *v){
 // Try for each data type as some will be empty given the recent changes whereby the origin will be included in the received message 
 // Will have to create a data parser for the data coming in from the webots side and going out of it 
 
-// March 24 work doen in telem last --> Harun Mwondi
+// March 27th work done in telem last --> Harun 
 

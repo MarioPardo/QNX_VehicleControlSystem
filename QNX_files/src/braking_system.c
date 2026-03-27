@@ -206,17 +206,6 @@ int main(int argc, char *argv[])
 	BrakingContext brakeContext;
     braking_system_setup_vehicleinfo(&brakeContext);
 
-    // // connect to watchdog by name
-    // int watchdog_coid = -1;
-    // while (watchdog_coid == -1) {
-    //     watchdog_coid = name_open("watchdog", 0);
-    //     if (watchdog_coid == -1) {
-    //         printf("[BRAKE] Waiting for Watchdog...\n");
-    //         sleep(1);
-    //     }
-    // }
-    // printf("[BRAKE SYSTEM] Connected to Watchdog\n");
-
     // register so other subsystems can find us
     attach = name_attach(NULL, "braking_system", 0);
     if (!attach) {
@@ -273,6 +262,7 @@ int main(int argc, char *argv[])
                 chaosMode();
             
         } else if (rcvid > 0) {
+
             receiveMessage(&brakeContext, rcvid);
         }
     }

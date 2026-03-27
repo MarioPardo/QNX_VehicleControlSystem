@@ -43,16 +43,17 @@ typedef struct { float speed; float brake_level; } BrakeUpdate;
 typedef struct { float value; } ThrottleUpdate;
 typedef struct { float angle; } SteeringUpdate;
 
-
+// Ensure to set non used fields to zero
 typedef struct {
     int subsys;
-    union {
-        BrakeUpdate    brake;
-        ThrottleUpdate throttle;
-        SteeringUpdate steering;
-    } data;
+    char brake_warnings [10][64];
+    char speed_warnings [10][64];
+    double speed;
 } ProcessMsg;
 
+// Braking -> warnings 
+// Driving -> speed kmh , warnings 
+// Add subsys tag (enum )
 
 //Pulse Codes
 typedef enum {
