@@ -37,26 +37,23 @@ void socket_setup();
 void receiver_setup();
 void sender_setup();
 
-void* send_loop(void* arg);
-void* recv_loop(void* arg);
-
-
-
-// Dashboard -> QNX Messaging
+// Use this for processes sending data to telemetry.c
+// This is the expected data archtype that the subsystems should be sending to telemetry.c with their potential updates
 typedef struct { float speed; float brake_level; } BrakeUpdate;
 typedef struct { float value; } ThrottleUpdate;
 typedef struct { float angle; } SteeringUpdate;
 
-
+// Ensure to set non used fields to zero
 typedef struct {
     int subsys;
-    union {
-        BrakeUpdate    brake;
-        ThrottleUpdate throttle;
-        SteeringUpdate steering;
-    } data;
+    char brake_warnings [10][64];
+    char speed_warnings [10][64];
+    double speed;
 } ProcessMsg;
 
+// Braking -> warnings 
+// Driving -> speed kmh , warnings 
+// Add subsys tag (enum )
 
 //Pulse Codes
 typedef enum {
@@ -99,49 +96,77 @@ typedef enum {
 
 
 
-//Type defs / ill clean up once i get tests done 
+// Haruns- this is for the DATA COMING INTO QNX VIA UDP . 
+//  Webots and Dashboard -> QNX
 
-// Data_parser relevant files 
-// -------------------------------------------------------------------------------------------------------
-// Haruns- This is the message i have for now but will later use FIELDS and type defs to have more range or we could always have them as null.
 typedef struct 
 {
-    double percentage;
-    double angle;
-    int enabled;
+    double percentage;      // this is the brake level input passed in as a percentage 
+    double angle;           // this is the steering angle input from  dashboard
+    int enabled;            // this is for the snowmode 
+    double throttle;
+    double speed;           // current speed from sim in webots  
+    double temp;            // temp value which wil be coming from webots
+    char toggleGear [2];         //[ D = 0 , R = 1]
+    int chaos_active;       // Indicator of chaos mode
+
 }message ;
 
 typedef struct 
 {
+    char origin[32];    //Stores the origin [ Userinput | VehicleInput ]
     char subsys[32];
-    char msg_type[32];
+    // char msg_type[32]; //No longer need this 
     message msg;
 } msg_packet ;
 
 
 
 // Haruns - Telemetry data struct for now
+// I might also just use this for data from processes to 
+// This is data from QNX -> PYTHON DASHBOARD
+
 typedef struct{
     float speed;
-    float throttle;
-    float brake;
-    float steering_angle;
-    int   safe_mode;    // bool
     int   snow_mode;    // bool
+    char warnings [10][64];  
+    int   warning_count;
     
 }telemetry_msg;
 
-//Haruns - The data to be received from py dashboard to be used (schema)
 typedef struct {
     char type [32];
     telemetry_msg tel;
-    float timestamp ;
+    // float timestamp ;  //Not needed anymore
 }telemetry_packet;
 
 
+// This is or data from QNX -> WEBOTS
+// webot sim data
+typedef struct 
+{
+    double throttle_level;    // [  0 , 1]
+    double brake_level;       // [  0 , 1]
+    double steering_level;    // [ -1 , 1]
+    int   snow_mode;
+    char toggleGear [2];         //[ D = 0 , R = 1]
+    
+}vehicle_controls_data;
+
+typedef struct 
+{
+    char subsys  [32];         // contains name of subsystem for that data
+    vehicle_controls_data data;
+}vehicle_controls;
+
+
+
+
 void packet_init(msg_packet *c);
+void vc_init(vehicle_controls *vc);
 char *telemetry_to_json(telemetry_packet *t);
 void json_to_msg_packet(const char *json_str, msg_packet *p);
+char* sim_data_to_json(vehicle_controls *v);
 
 // -------------------------------------------------------------------------------------------------------
 

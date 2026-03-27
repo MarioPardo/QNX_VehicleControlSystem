@@ -29,12 +29,32 @@ void cleanup_telemetry(void) {
     name_detach(attach, 0);
 }
 
+// ----- TEST FUNCTION - remove once processes are sending real data -----
+void build_test_telemetry(telemetry_msg *state, int tick) {
+
+    // Fake speed that ramps up and down
+    state->speed = (float)(tick % 120);
+
+    // Toggle snow mode every 5 ticks
+    state->snow_mode = (tick / 5) % 2;
+
+    // Cycle through some fake warnings
+    state->warning_count = 0;
+    if (tick % 10 == 0) {
+        strncpy(state->warnings[0], "Low brake pressure", 63);
+        state->warning_count = 1;
+    }
+    if (tick % 15 == 0) {
+        strncpy(state->warnings[1], "Engine temp high", 63);
+        state->warning_count = 2;
+    }
+}
+// -----------------------------------------------------------------------
+
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");
 
-    telemetry_msg state;
-    memset(&state, 0, sizeof(state));
-
+   
     // connect to watchdog by name
     int watchdog_coid = -1;
     while (watchdog_coid == -1) {
@@ -74,20 +94,28 @@ int main(int argc, char *argv[]) {
     timer_t timer_id;
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
     struct itimerspec itime;
-    itime.it_value.tv_sec  = SYS_TELEMETRY_RESPONSETIME_MS / 1000;
-    itime.it_value.tv_nsec = (SYS_TELEMETRY_RESPONSETIME_MS % 1000) * 1000000;
+    itime.it_value.tv_sec  = 1;               // 1 second cycle (debug)
+    itime.it_value.tv_nsec = 0;
     itime.it_interval      = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
     //Telemetry process wakes up every 100 ms to prep the data so far and send to dashboard
     printf("[TELEMETRY] Running\n");
     
+    telemetry_msg state;
+    memset(&state, 0, sizeof(state));
+
+
     // This is the main telemetry process function
     // main loop
     ProcessMsg msg;  // reuse for all incoming 
     
     struct _pulse pulse;
 
+    //Test variable
+    int tick = 0;
+    
+    // Break into separate functions bext time -Harun TODO
     while (1) {
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
@@ -96,20 +124,29 @@ int main(int argc, char *argv[]) {
              if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) 
              {
 
+                // TEMP: Adds fake data to populate state for pipeline testing
+                build_test_telemetry(&state, tick++);
+                // ↑ remove this line once real process data is flowing
+
+
                 //TODO should be two separate functions below
-                {
+                
                 // build telemetry packet to be sent to dashboard with data so far
                 telemetry_packet t;
                 memset(&t, 0, sizeof(t));
+
+                // This is what python is expecting in the process_packet function
+
                 strcpy(t.type, "VehicleTelemetry");
                 t.tel.speed          = state.speed;
-                t.tel.throttle       = state.throttle;
-                t.tel.brake          = state.brake;
-                t.tel.steering_angle = state.steering_angle;
-                t.tel.safe_mode      = state.safe_mode;
-                t.tel.snow_mode      = state.snow_mode;
-                t.timestamp          = (float)time(NULL);
+                t.tel.snow_mode         = state.snow_mode;
+                t.tel.warning_count = state.warning_count;  //Not needed in python side but will add still
 
+                //Copying over warnings onto the t packet to be sent  
+                
+                memcpy(t.tel.warnings, state.warnings, sizeof(state.warnings));
+ 
+                
                 // convert and send to Python
                 char *json = telemetry_to_json(&t);
                 sendto(sockfd, json, strlen(json), 0,
@@ -117,7 +154,7 @@ int main(int argc, char *argv[]) {
                 free(json);
 
                 printf("[TELEMETRY] packet sent to Python\n");
-                }
+                
 
                 // check in with watchdog
                 MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
@@ -125,20 +162,30 @@ int main(int argc, char *argv[]) {
 
         } else if (rcvid > 0) {
             // message from a subsystem
+            // This is what the subsystems should be sending 
+            // Confirm what data the subsystems are sending to telemetry.c ?
+
             MsgRead(rcvid, &msg, sizeof(msg), 0);
 
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
-                    state.speed = msg.data.brake.speed;
-                    state.brake = msg.data.brake.brake_level;
-                    printf("[TELEMETRY] Brake update - speed: %.1f\n", state.speed);
+                    printf("[TELEMETRY] Hello from brake \n");
+                //    state.speed = msg.data.brake.speed;
+                    // state.brake = msg.data.brake.brake_level;
+                    // printf("[TELEMETRY] Brake update - speed: %.1f\n", state.speed);
                     break;
-                case SUBSYS_THROTTLE:
-                    state.throttle = msg.data.throttle.value;
+                
+                // So we are not sending throttle anymore to the dashboard . just speed, snowmode and warnings
+                case SUBSYS_DRIVE:
+                    printf("[TELEMETRY] Hello from driving \n");
+                    
+                  //  state.snow_mode = msg.data.throttle.value;
                     break;
-                case SUBSYS_STEERING:
-                    state.steering_angle = msg.data.steering.angle;
-                    break;
+                // case SUBSYS_MODE:
+                //     printf("[TELEMETRY] Hello from MODE \n");
+                //     state.steering_angle = msg.data.steering.angle;
+                //     break;
+
             }
             MsgReply(rcvid, EOK, NULL, 0);
         }

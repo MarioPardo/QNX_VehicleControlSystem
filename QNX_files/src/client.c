@@ -18,7 +18,7 @@ void cleanup_client(void) {
     name_detach(attach, 0);
 }
 
-void receiveFromDashboard(int sockfd, int brake_coid) {
+void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
     char buffer[1024];
     
     while (1) {
@@ -30,81 +30,64 @@ void receiveFromDashboard(int sockfd, int brake_coid) {
         msg_packet p;
         json_to_msg_packet(buffer, &p);
 
-        // route to correct process
-
-
-        if (strcmp(p.msg_type, "BrakingInput") == 0) 
-        {
-            int ret = MsgSend(brake_coid, &p.msg, sizeof(p.msg), NULL, 0);
-            if (ret < 0)
-                printf("[CLIENT] : Failed to send braking data to braking_system.");
-            else
-                printf("[CLIENT] : Received braking data from Dashboard.");
+        //From here then on send the data to appropriate processes , braking etc 
+        if (strcmp(p.subsys, "Brake") == 0) {
+            MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
+            printf("[CLIENT] : Received Braking data from Dashboard ");
         }
-        // undo when implemented and done with testing
-        // else if (strcmp(p.msg_type, "ThrottleInput") == 0) {
-        //     MsgSend(throttle_coid, &p.msg, sizeof(p.msg), NULL, 0);
-        // }
-        // else if (strcmp(p.msg_type, "SteeringInput") == 0) {
-        //     MsgSend(steering_coid, &p.msg, sizeof(p.msg), NULL, 0);
-        // }
-    }
+        else if (strcmp(p.subsys, "Driving") == 0) {
+            
+            MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
+            printf("[CLIENT] : Received driving data from Dashboard ");
+        }
+        else if (strcmp(p.subsys, "Mode") == 0) {
+            
+            // TODO Mode process for this to be implemented
+            printf("[CLIENT] : Received Mode data from Dashboard ");
+        }
+
+
+        // Testing comment to identify source of data 
+
+        if (strcmp(p.origin, "VehicleData") == 0) {
+            printf("[CLIENT] : Received Vehicle Data from Webots ");
+
+        }
+        else if (strcmp(p.origin, "UserInput") == 0) {
+            printf("[CLIENT] : Received User input data from dashboard");
+        } 
+
+    }      
+    
 }
 
 
-// ---------------------------------------------------------------------------------------------------------------
-//Might not need these anymore but have not decided yet if I will , might need them in the future 
-// This defines the receiver and sender code so far without parsing 
-
-//This is the receiver loop 
-void* recv_loop(void* arg) {
-    char buffer[1024];
-    struct sockaddr_in sender;
-    socklen_t sender_len = sizeof(sender);
-
-    printf("Listening on port %d...\n", LISTEN_PORT);
-
-    while(1) {
-        int n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
-                         (struct sockaddr*)&sender, &sender_len);
-        if(n < 0) continue;
-
-        buffer[n] = '\0';
-       // printf("[RECV] %s\n", buffer);
-
-        // later use json parsing function 
-    }
-
-    return NULL;
-}
-
-// Responsible for sending data over network
-// Load buffer to be sent over 
-void* send_loop(void* arg) {
-    int seq = 0;
-    char payload[256];
-
-    while(1) {
-        // hand build JSON string for now
-        snprintf(payload, sizeof(payload),
-            "{\"msg_type\":\"SPEED\",\"value\":%d,\"seq\":%d}",
-            60 + (seq % 20), seq);
-
-        sendto(sockfd, payload, strlen(payload), 0,
-               (struct sockaddr*)&dest, sizeof(dest));
-
-        //printf("[SENT] %s\n", payload);
-
-        seq++;
-        sleep(1);
-    }
-
-    return NULL;
-}
-
-//TODO if client is a process it must start checking in with watchdog
+//TODO if client is a process it must start checking in with watchdog potentially to prevent it from dying as well
 
 // ------------------------------------------------------------------------------------------------------------------------
+void connect_to_processes(int *brake_coid , int *driving_coid){
+    while (*brake_coid == -1) {
+        *brake_coid = name_open("braking_system", 0);
+        if (*brake_coid == -1) {
+            printf("[CLIENT] Waiting for braking...\n");
+            sleep(1);
+        }
+    }
+    printf("[CLIENT] Connected to braking\n");
+
+    while (*driving_coid == -1) {
+        *driving_coid = name_open("driving_system", 0);
+        if (*driving_coid == -1) {
+            printf("[CLIENT] Waiting for driving system...\n");
+            sleep(1);
+        }
+    }
+    printf("[CLIENT] Connected to driving\n");
+
+
+
+}
+
 
 int main(int argc, char *argv[]) {
 
@@ -118,28 +101,57 @@ int main(int argc, char *argv[]) {
     signal(SIGINT,  shutdown_client);
     printf("[CLIENT] Registered as client\n");
 
-    int brake_coid = -1;
-    while (brake_coid == -1) {
-        brake_coid = name_open("braking_system", 0);
-        if (brake_coid == -1) {
-            printf("[CLIENT] Waiting for braking...\n");
-            sleep(1);
-        }
-    }
-    printf("[CLIENT] Connected to braking\n");
-
-    // setup UDP socket for receiving from Python
     
+    // Connect to all the proccess required
+    
+    // int mode_coid = -1;
+    int brake_coid = -1;
+    int driving_coid = -1;
+
+    connect_to_processes(&brake_coid , &driving_coid);
+
+
+    // setup UDP socket for receiving from Python    
     receiver_setup();
 
     printf("[CLIENT] Listening on port %d\n", LISTEN_PORT);
 
     // start receiving
-    // receiveFromDashboard(sockfd, brake_coid, throttle_coid, steering_coid);
-    
-    // For testing purposes
-    receiveFromDashboard(sockfd, brake_coid);
+   
+    //Receives all incoming traffic into QNX port , contains all process id's that would be needed in transfer of data
+    main_qnx_receiver(sockfd, brake_coid , driving_coid );
 
 
     return 0;
 }
+
+
+/*
+// MODELING FOR REC FOR THE JSON BIT:
+
+receive(){
+    ccheck source:
+        if from dash
+            check subsytem()
+                msgsend  to proper subsytem dependent}
+
+        if from vehicle 
+            check subsystem()
+                msgsend to proper subsytem dependent } 
+
+*/
+
+
+/*
+-> Client has to connect with all the processes it will want to communicate with.
+-> This means to pass the coid of each of thee processes into the main receive function or atleast an array of them
+-> Best case is to do this once since we dont have too many processes and its a processes that only happens oce when starting up 
+    the client process.
+-> The data structure being sent has to align with what the function on the other end expects in terms of subsys , type and data
+
+-> These processes include:
+        - Braking
+        - Driving
+        - Steering
+
+    */

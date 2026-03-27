@@ -38,6 +38,7 @@
 							<tool id="com.qnx.qcc.tool.assembler.1649165718" name="QCC Assembler" superClass="com.qnx.qcc.tool.assembler">
 								<inputType id="com.qnx.qcc.inputType.assembler.1354714793" superClass="com.qnx.qcc.inputType.assembler"/>
 							</tool>
+
 							<tool id="com.qnx.qcc.tool.linker.1385964492" name="QCC Linker" superClass="com.qnx.qcc.tool.linker"/>
 							<tool id="com.qnx.qcc.tool.archiver.375371041" name="QCC Archiver" superClass="com.qnx.qcc.tool.archiver"/>
 						</toolChain>

@@ -1,12 +1,25 @@
 #Python Stuff
 .venv/*
 
+# Eclipse/Momentics metadata (local)
+**/.cproject
+**/.project
+
 # --- QNX Build Artifacts ---
 # Ignores the 'obj' folder created by our Makefile
 **/obj/
 
-# Ignores the actual executable binary
+# Common build output folders
+**/build/
+
+# Ignore built executables in QNX_files/
 QNX_files/main
+QNX_files/main_supervisor
+QNX_files/watchdog
+QNX_files/braking_system
+QNX_files/telemetry_system
+QNX_files/client
+QNX_files/driving_system
 
 # Ignores common QNX/Momentics architecture-specific output folders
 **/armle-v7*/
