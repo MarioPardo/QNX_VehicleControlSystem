@@ -43,7 +43,7 @@ void vc_init(vehicle_controls *vc){
 char *telemetry_to_json(telemetry_packet *t) {
     cJSON *root     = cJSON_CreateObject();
     cJSON *data     = cJSON_CreateObject();
-    cJSON *mode     = cJSON_CreateObject();       /
+    cJSON *mode     = cJSON_CreateObject();       
     cJSON *warnings = cJSON_CreateArray();
 
     cJSON_AddStringToObject(root, "type", t->type);
