@@ -47,7 +47,7 @@ void processUserBrakeInput(BrakingContext* context, float brakeLevel)
     context->currentBrakeLevel = newBrakeLevel;
 
     //print received data and new brake level
-    printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f\n", brakeLevel, context->currentBrakeLevel);
+   // printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f \n", brakeLevel, context->currentBrakeLevel);
 }
 
 
@@ -66,7 +66,7 @@ void processVehicleBrakeData(BrakingContext* context, float brakeTemp)
 
 
     //print received data and new safe brake level
-    printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
+    //printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
 
     return;
 }
@@ -124,7 +124,7 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
     *watchdog_coid = connect_by_name_with_retries("watchdog", max_retries, retry_sleep_s);
     if (*watchdog_coid == -1) return -1;
     printf("[BRAKE] Connected to Watchdog\n");
-
+    
 
     // connect to telemetry
     *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
@@ -133,7 +133,7 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
 
 
     //connect to vehicle sender
-    *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
+   *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
     if (*vehiclesender_coid == -1) return -1;
     printf("[BRAKE] Connected to vehicle sender\n");
 
@@ -142,26 +142,19 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
     return 0;
 }
 
-void receiveMessage(BrakingContext* brakeContext, int rcvid) {
+void receiveMessage(BrakingContext* brakeContext, int rcvid, msg_packet* pkt)
+{
+    MsgReply(rcvid, 0, NULL, 0);
+
+    if (strcmp(pkt->subsys, "Brake") != 0) //ensure meant for brake
+        return;
+
+    //process data according to source
+    if (strcmp(pkt->origin, "UserInput") == 0) 
+        processUserBrakeInput(brakeContext, (float)pkt->msg.percentage);
+     else if (strcmp(pkt->origin, "VehicleData") == 0) 
+        processVehicleBrakeData(brakeContext, (float)pkt->msg.temp);
     
-    //Check if message is Vehicle Data (from simulator)  or UserInput(from dashboard)
-
-
-    //if VehicleData
-
-        //parse message
-        //brakeTemp =
-        // send data to ProcessVehicleBrakeData;
-        //processVehicleBrakeData(brakeContext, brakeTemp);
-
-
-    //if UserInput
-
-        //parse input
-        // userInputBrakeLevel = 
-        //send data to ProcessUserBrakeInput
-       // processUserBrakeInput(brakeContext, userInputBrakeLevel);
-
 }
 
 /// Process Handling ///////
@@ -175,7 +168,6 @@ void sendWatchdogHealthStatus(int watchdog_coid)
         printf("[BRAKE SYSTEM] cannot find CHID of watchdog \n");
         return;
     }
-    printf("[BRAKE SYSTEM] Checking in! \n");
 	MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_BRAKE);
 }
 
@@ -209,6 +201,7 @@ int main(int argc, char *argv[])
 
 	BrakingContext brakeContext;
     braking_system_setup_vehicleinfo(&brakeContext);
+
 
     // register so other subsystems can find us
     attach = name_attach(NULL, "braking_system", 0);
@@ -250,24 +243,26 @@ int main(int argc, char *argv[])
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
-    struct _pulse pulse;
+    union {
+        struct _pulse pulse;
+        msg_packet    pkt;
+    } buf;
 
     while (1)
     {
-        int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
+        int rcvid = MsgReceive(attach->chid, &buf, sizeof(buf), NULL);
 
         if (rcvid == 0) {
-            if (pulse.code == PULSE_SUBSYSTEM_INTERNAL)
+            if (buf.pulse.code == PULSE_SUBSYSTEM_INTERNAL)
             {
                 sendWatchdogHealthStatus(watchdog_coid);
                 dispatchBrakeData(&brakeContext, telemetry_coid, vehiclesender_coid);
             }
-            if(pulse.code == PULSE_CHAOSMODE)
+            if (buf.pulse.code == PULSE_CHAOSMODE)
                 chaosMode();
-            
-        } else if (rcvid > 0) {
 
-            receiveMessage(&brakeContext, rcvid);
+        } else if (rcvid > 0) {
+            receiveMessage(&brakeContext, rcvid, &buf.pkt);
         }
     }
     return 0;

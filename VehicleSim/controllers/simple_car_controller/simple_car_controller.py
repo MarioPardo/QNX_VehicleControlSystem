@@ -1,10 +1,10 @@
 """
 Webots Vehicle Controller - UDP Controlled.
-Receives VehicleControls messages via UDP and applies them to the vehicle.
+Receives vehicle control messages via UDP and applies them to the vehicle.
 
 Expected message format:
-  {"VehicleControls": {"Brake": {"brakeLevel": 0.5}}}
-  {"VehicleControls": {"Drive": {"ThrottleLevel": 0.5, "Steering": 0.0, "toggleGear": "D"}}}
+  {"subsys": "vehicle_sender", "data": {"throttle_level": 0.8, "brake_level": 0.0,
+   "steering_level": 0.5, "snow_mode": 0, "toggleGear": "D"}}
 """
 
 import math
@@ -25,61 +25,42 @@ def map_steering(steering_input):
     return steering_input * MAX_STEERING
 
 
-def validate_brake(data):
-    """Validate brake message. Returns brakeLevel float or None."""
-    if not isinstance(data, dict):
+def parse_vehicle_sender(message):
+    """Parse a vehicle_sender message. Returns data dict or None."""
+    if not isinstance(message, dict):
         return None
-    brake_level = data.get("brakeLevel")
-    if not isinstance(brake_level, (int, float)):
-        print("Invalid brakeLevel: not a number")
+    if message.get("subsys") != "vehicle_sender":
         return None
-    return clamp(float(brake_level), 0.0, 1.0)
 
-
-def validate_drive(data):
-    """Validate drive message. Returns (throttle, steering, gear) or None."""
+    data = message.get("data")
     if not isinstance(data, dict):
         return None
 
-    throttle = data.get("ThrottleLevel")
-    steering = data.get("Steering")
+    throttle = data.get("throttle_level")
+    brake = data.get("brake_level")
+    steering = data.get("steering_level")
     gear = data.get("toggleGear")
 
     if not isinstance(throttle, (int, float)):
-        print("Invalid ThrottleLevel: not a number")
+        print("Invalid throttle_level")
+        return None
+    if not isinstance(brake, (int, float)):
+        print("Invalid brake_level")
         return None
     if not isinstance(steering, (int, float)):
-        print("Invalid Steering: not a number")
+        print("Invalid steering_level")
         return None
     if gear not in ('R', 'D'):
-        print(f"Invalid toggleGear: must be 'R' or 'D', got '{gear}'")
+        print(f"Invalid toggleGear: '{gear}'")
         return None
 
-    throttle = clamp(float(throttle), 0.0, 1.0)
-    steering = clamp(float(steering), -1.0, 1.0)
-    return throttle, steering, gear
-
-
-def parse_vehicle_controls(message):
-    """Parse a VehicleControls message. Returns (msg_type, data) or (None, None)."""
-    if not isinstance(message, dict):
-        return None, None
-
-    controls = message.get("VehicleControls")
-    if not isinstance(controls, dict):
-        return None, None
-
-    if "Brake" in controls:
-        brake_level = validate_brake(controls["Brake"])
-        if brake_level is not None:
-            return "Brake", brake_level
-
-    if "Drive" in controls:
-        result = validate_drive(controls["Drive"])
-        if result is not None:
-            return "Drive", result
-
-    return None, None
+    return {
+        "throttle": clamp(float(throttle), 0.0, 1.0),
+        "brake":    clamp(float(brake), 0.0, 1.0),
+        "steering": clamp(float(steering), -1.0, 1.0),
+        "gear":     gear,
+        "snow_mode": bool(data.get("snow_mode", 0)),
+    }
 
 
 # --- Subsystems ---
@@ -130,7 +111,7 @@ class VehicleManager:
         self.driver.setGear(1)
 
         self.udp_comm = UDPCommunicator(
-            send_host='127.0.0.1', send_port=5000, recv_port=5001
+            send_host='127.0.0.1', send_port=5000, recv_port=6001
         )
 
         self.steering_subsystem = SteeringSubsystem(self.driver)
@@ -158,18 +139,18 @@ class VehicleManager:
         if not message:
             return
 
-        msg_type, data = parse_vehicle_controls(message)
-        if msg_type is None:
+        data = parse_vehicle_sender(message)
+        if data is None:
             print(f"Invalid message received: {message}")
             return
 
-        if msg_type == "Brake":
-            print(f"UDP RECEIVED [Brake]: brakeLevel={data}")
-            self.apply_brake(data)
-        elif msg_type == "Drive":
-            throttle, steering, gear = data
-            print(f"UDP RECEIVED [Drive]: throttle={throttle}, steering={steering}, gear={gear}")
-            self.apply_drive(throttle, steering, gear)
+        print(f"UDP RECEIVED: throttle={data['throttle']}, brake={data['brake']}, "
+              f"steering={data['steering']}, gear={data['gear']}, snow_mode={data['snow_mode']}")
+
+        if data["brake"] > 0.0:
+            self.apply_brake(data["brake"])
+        else:
+            self.apply_drive(data["throttle"], data["steering"], data["gear"])
 
     def get_speed_kmh(self):
         """Get current vehicle speed in km/h as int."""

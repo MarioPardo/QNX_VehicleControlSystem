@@ -2,12 +2,13 @@
 
 
 // client.c
-// Will change back to this , rn just testing it 
+// Will change back to this , rn just testing it
 // void *receiveFromDashboard(int sockfd, int brake_coid, int throttle_coid, int steering_coid) {
 
 int sockfd;
 struct sockaddr_in dest;
 name_attach_t *attach;
+int watchdog_coid = -1;
 
 void shutdown_client(int signo) {
     exit(0);  // triggers atexit handlers safely
@@ -16,6 +17,36 @@ void shutdown_client(int signo) {
 void cleanup_client(void) {
     printf("[CLIENT] Exiting, detaching name...\n");
     name_detach(attach, 0);
+}
+
+void sendWatchdogHealthStatus(void)
+{
+    if (watchdog_coid == -1) return;
+    MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_CLIENT);
+}
+
+void *watchdog_thread(void *arg)
+{
+    int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
+
+    struct sigevent event;
+    SIGEV_PULSE_INIT(&event, my_coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_SUBSYSTEM_INTERNAL, SUBSYS_CLIENT);
+    timer_t timer_id;
+    timer_create(CLOCK_MONOTONIC, &event, &timer_id);
+
+    struct itimerspec itime;
+    itime.it_value.tv_sec  = SYS_CLIENT_RESPONSETIME_MS / 1000;
+    itime.it_value.tv_nsec = (SYS_CLIENT_RESPONSETIME_MS % 1000) * 1000000;
+    itime.it_interval = itime.it_value;
+    timer_settime(timer_id, 0, &itime, NULL);
+
+    struct _pulse pulse;
+    while (1) {
+        int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
+        if (rcvid == 0 && pulse.code == PULSE_SUBSYSTEM_INTERNAL)
+            sendWatchdogHealthStatus();
+    }
+    return NULL;
 }
 
 void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
@@ -33,28 +64,28 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         //From here then on send the data to appropriate processes , braking etc 
         if (strcmp(p.subsys, "Brake") == 0) {
             MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
-            printf("[CLIENT] : Received Braking data from Dashboard ");
+           // printf("[CLIENT] : Received Braking data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Driving") == 0) {
             
             MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
-            printf("[CLIENT] : Received driving data from Dashboard ");
+           // printf("[CLIENT] : Received driving data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Mode") == 0) {
             
             // TODO Mode process for this to be implemented
-            printf("[CLIENT] : Received Mode data from Dashboard ");
+           // printf("[CLIENT] : Received Mode data from Dashboard \n");
         }
 
 
         // Testing comment to identify source of data 
 
         if (strcmp(p.origin, "VehicleData") == 0) {
-            printf("[CLIENT] : Received Vehicle Data from Webots ");
+            printf("[CLIENT] : Received Vehicle Data from Webots \n");
 
         }
         else if (strcmp(p.origin, "UserInput") == 0) {
-            printf("[CLIENT] : Received User input data from dashboard");
+          //  printf("[CLIENT] : Received User input data from dashboard \n");
         } 
 
     }      
@@ -110,6 +141,19 @@ int main(int argc, char *argv[]) {
 
     connect_to_processes(&brake_coid , &driving_coid);
 
+    // connect to watchdog
+    while (watchdog_coid == -1) {
+        watchdog_coid = name_open("watchdog", 0);
+        if (watchdog_coid == -1) {
+            printf("[CLIENT] Waiting for watchdog...\n");
+            sleep(1);
+        }
+    }
+    printf("[CLIENT] Connected to watchdog\n");
+
+    // start watchdog heartbeat thread
+    pthread_t wd_thread;
+    pthread_create(&wd_thread, NULL, watchdog_thread, NULL);
 
     // setup UDP socket for receiving from Python    
     sockfd=receiver_setup();

@@ -1,5 +1,5 @@
 # 1. Variables
-EXE_MAIN     = main_supervisor
+EXE_MAIN     = vcs
 EXE_WATCHDOG = watchdog
 EXE_BRAKING  = braking_system
 EXE_DRIVING = driving_system

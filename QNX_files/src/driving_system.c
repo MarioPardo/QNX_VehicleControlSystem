@@ -14,6 +14,7 @@ typedef struct {
     float maxThrottleLevel;        // 0..1
     float currentSteeringAngle;    // degrees (or whatever the sim uses)
     bool  snowMode;
+    char  gear[2];                 // "D" or "R"
 } DriveContext;
 
 int sockfd;
@@ -29,10 +30,12 @@ static void driving_system_setup_driveinfo(DriveContext* context)
     context->maxThrottleLevel = 1.0f;
     context->currentSteeringAngle = 0.0f;
     context->snowMode = false;
+    context->gear[0] = 'D';
+    context->gear[1] = '\0';
     printf("[DRIVING SYSTEM] Info Setup Complete\n");
 }
 
-static void processUserDriveInput(DriveContext* context, float throttleLevel, float steeringAngle, bool snowMode)
+static void processUserDriveInput(DriveContext* context, float throttleLevel, float steeringAngle, bool snowMode, const char* gear)
 {
     context->snowMode = snowMode;
 
@@ -45,17 +48,22 @@ static void processUserDriveInput(DriveContext* context, float throttleLevel, fl
     // Clamp throttle to [0, maxThrottleLevel]
     context->currentThrottleLevel = fmaxf(0.0f, fminf(throttleLevel, context->maxThrottleLevel));
 
-    printf("[DRIVING SYSTEM] User input -> throttle: %.2f (max %.2f) steering: %.2f snowMode: %s\n",
+    context->gear[0] = gear[0];
+    context->gear[1] = '\0';
+
+   /* printf("[DRIVING SYSTEM] User input -> throttle: %.2f (max %.2f) steering: %.2f snowMode: %s gear: %s\n",
            context->currentThrottleLevel,
            context->maxThrottleLevel,
            context->currentSteeringAngle,
-           context->snowMode ? "true" : "false");
+           context->snowMode ? "true" : "false",
+           context->gear;
+           */
 }
 
 static void processVehicleDriveData(DriveContext* context, float speed_kmh)
 {
     context->currentSpeed = speed_kmh;
-    printf("[DRIVING SYSTEM] Vehicle data -> speed: %.2f km/h\n", context->currentSpeed);
+   // printf("[DRIVING SYSTEM] Vehicle data -> speed: %.2f km/h\n", context->currentSpeed);
 }
 
 static void dispatchDriveData(DriveContext* context, int telemetry_coid, int vehiclesender_coid)
@@ -93,13 +101,13 @@ static int setupCommChannels(int* telemetry_coid, int* vehiclesender_coid)
     const int max_retries = 10;
     const unsigned retry_sleep_s = 1;
 
-    *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
-    if (*telemetry_coid == -1) return -1;
-    printf("[DRIVING] Connected to telemetry\n");
+  //  *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
+   // if (*telemetry_coid == -1) return -1;
+   // printf("[DRIVING] Connected to telemetry\n");
 
-    *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
-    if (*vehiclesender_coid == -1) return -1;
-    printf("[DRIVING] Connected to vehicle sender\n");
+   // *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
+    //if (*vehiclesender_coid == -1) return -1;
+    //printf("[DRIVING] Connected to vehicle sender\n");
 
     return 0;
 }
@@ -115,23 +123,18 @@ static void sendWatchdogHealthStatus(int watchdog_coid)
     MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_DRIVE);
 }
 
-static void receiveMessage(DriveContext* driveContext, int rcvid)
+static void receiveMessage(DriveContext* driveContext, int rcvid, msg_packet* pkt)
 {
-   //Check if message is Vehicle Data (from simulator)  or UserInput(from dashboard)
+    MsgReply(rcvid, 0, NULL, 0);
 
+    if (strcmp(pkt->subsys, "Driving") != 0)
+        return;
 
-    //if VehicleData
-
-        //parse message
-        // send data to ProcessVehicleDriveDataData;
-
-
-
-    //if UserInput
-
-        //parse input
-
-        //send data to ProcessUserDriveInput
+    if (strcmp(pkt->origin, "UserInput") == 0) {
+        processUserDriveInput(driveContext, (float)pkt->msg.throttle, (float)pkt->msg.angle, (bool)pkt->msg.enabled, pkt->msg.toggleGear);
+    } else if (strcmp(pkt->origin, "VehicleData") == 0) {
+        processVehicleDriveData(driveContext, (float)pkt->msg.speed);
+    }
 }
 
 /// Process Handling ///////
@@ -203,22 +206,25 @@ int main(int argc, char *argv[])
     itime.it_interval = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
-    struct _pulse pulse;
+    union {
+        struct _pulse pulse;
+        msg_packet    pkt;
+    } buf;
+
     while (1)
     {
-        int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
+        int rcvid = MsgReceive(attach->chid, &buf, sizeof(buf), NULL);
 
         if (rcvid == 0) {
-            if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
+            if (buf.pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
                 sendWatchdogHealthStatus(watchdog_coid);
                 dispatchDriveData(&driveContext, telemetry_coid, vehiclesender_coid);
             }
-            if (pulse.code == PULSE_CHAOSMODE) {
-                // Optional: you can add chaos behavior later.
+            if (buf.pulse.code == PULSE_CHAOSMODE) {
+               //chaosMode()
             }
         } else if (rcvid > 0) {
-            receiveMessage(&driveContext, rcvid);
-            MsgReply(rcvid, EOK, NULL, 0);
+            receiveMessage(&driveContext, rcvid, &buf.pkt);
         }
     }
 
