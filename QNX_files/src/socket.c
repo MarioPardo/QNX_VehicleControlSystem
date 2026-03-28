@@ -10,7 +10,7 @@ int sender_setup(const char *ip, int port , struct sockaddr_in *dst) {
         return -1;
     }
 
-    struct sockaddr_in dst;
+    
     memset(dst, 0, sizeof(*dst));
     dst.sin_family = AF_INET;
     dst.sin_port   = htons(port);
