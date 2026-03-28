@@ -30,7 +30,7 @@ int receiver_setup(){
     local.sin_family      = AF_INET;
     local.sin_port        = htons(LISTEN_PORT);
     local.sin_addr.s_addr = INADDR_ANY;
-    bind(sockfd, (struct sockaddr*)&local, sizeof(local));
+    bind(fd, (struct sockaddr*)&local, sizeof(local));
     return fd;
 }
 
