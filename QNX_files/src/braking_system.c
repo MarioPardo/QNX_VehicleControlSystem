@@ -71,14 +71,52 @@ void processVehicleBrakeData(BrakingContext* context, float brakeTemp)
     return;
 }
 
-void dispatchBrakeData(BrakingContext* context, int telemetry_coid, int vehiclesender_coid)
+static int trySendMsg(int *coid, const char *name, const void *msg, int nbytes)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSend(*coid, msg, nbytes, NULL, 0) != -1)
+        return 0; // worked
+
+    // send failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSend(*coid, msg, nbytes, NULL, 0) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[BRAKE] WARNING: could not send to %s\n", name);
+    return -1;
+}
+
+static int trySendPulse(int *coid, const char *name, int code, int value)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+        return 0; // worked
+
+    // pulse failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[BRAKE] WARNING: could not send pulse to %s\n", name);
+    return -1;
+}
+
+void dispatchBrakeData(BrakingContext* context, int *telemetry_coid, int *vehiclesender_coid)
 {
     ProcessMsg msg;
     memset(&msg, 0, sizeof(msg));
     msg.subsys      = SUBSYS_BRAKE;
     msg.brake_level = context->currentBrakeLevel;
-    MsgSend(vehiclesender_coid, &msg, sizeof(msg), NULL, 0);
-    MsgSend(telemetry_coid,     &msg, sizeof(msg), NULL, 0);
+    trySendMsg(vehiclesender_coid, "vehicle_sender",  &msg, sizeof(msg));
+    trySendMsg(telemetry_coid,     "telemetry_system", &msg, sizeof(msg));
 }
 
 /// Communication ///////
@@ -113,20 +151,15 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
 
     // connect to watchdog by name
     *watchdog_coid = connect_by_name_with_retries("watchdog", max_retries, retry_sleep_s);
-    if (*watchdog_coid == -1) return -1;
-    printf("[BRAKE] Connected to Watchdog\n");
-    
+    printf("[BRAKE] %s\n", *watchdog_coid != -1 ? "Connected to Watchdog" : "WARNING: Watchdog unavailable, continuing");
 
     // connect to telemetry
     *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
-    if (*telemetry_coid == -1) return -1;
-    printf("[BRAKE] Connected to telemetry\n");
-
+    printf("[BRAKE] %s\n", *telemetry_coid != -1 ? "Connected to telemetry" : "WARNING: telemetry_system unavailable, continuing");
 
     //connect to vehicle sender
-   *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
-    if (*vehiclesender_coid == -1) return -1;
-    printf("[BRAKE] Connected to vehicle sender\n");
+    *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
+    printf("[BRAKE] %s\n", *vehiclesender_coid != -1 ? "Connected to vehicle sender" : "WARNING: vehicle_sender unavailable, continuing");
 
 
 
@@ -151,15 +184,9 @@ void receiveMessage(BrakingContext* brakeContext, int rcvid, msg_packet* pkt)
 /// Process Handling ///////
 
 
-void sendWatchdogHealthStatus(int watchdog_coid)
+void sendWatchdogHealthStatus(int *watchdog_coid)
 {
-
-    if (watchdog_coid == -1)
-    {
-        printf("[BRAKE SYSTEM] cannot find CHID of watchdog \n");
-        return;
-    }
-	MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_BRAKE);
+    trySendPulse(watchdog_coid, "watchdog", PULSE_SUBSYSTEM_ALIVE, SUBSYS_BRAKE);
 }
 
 void chaosMode()// triggers a failure. must be restarted
@@ -208,16 +235,11 @@ int main(int argc, char *argv[])
     printf("[BRAKE SYSTEM] Registered as braking_system\n");
 
     //comm channels
-    int watchdog_coid;
-    int telemetry_coid;
-    int vehiclesender_coid;
+    int watchdog_coid      = -1;
+    int telemetry_coid     = -1;
+    int vehiclesender_coid = -1;
 
-    // set up communication channels
-    int result = setupCommChannels(&watchdog_coid, &telemetry_coid, &vehiclesender_coid);
-    if (result != 0) {
-        printf("[BRAKE SYSTEM] Failed to set up communication channels\n");
-        return -1;
-    }
+    setupCommChannels(&watchdog_coid, &telemetry_coid, &vehiclesender_coid);
 
     // connect to own channel for timer pulses
     int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
@@ -246,8 +268,8 @@ int main(int argc, char *argv[])
         if (rcvid == 0) {
             if (buf.pulse.code == PULSE_SUBSYSTEM_INTERNAL)
             {
-                sendWatchdogHealthStatus(watchdog_coid);
-                dispatchBrakeData(&brakeContext, telemetry_coid, vehiclesender_coid);
+                sendWatchdogHealthStatus(&watchdog_coid);
+                dispatchBrakeData(&brakeContext, &telemetry_coid, &vehiclesender_coid);
             }
             if (buf.pulse.code == PULSE_CHAOSMODE)
                 chaosMode();

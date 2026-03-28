@@ -68,7 +68,45 @@ static void processVehicleDriveData(DriveContext* context, float speed_kmh)
    // printf("[DRIVING SYSTEM] Vehicle data -> speed: %.2f km/h\n", context->currentSpeed);
 }
 
-static void dispatchDriveData(DriveContext* context, int telemetry_coid, int vehiclesender_coid)
+static int trySendMsg(int *coid, const char *name, const void *msg, int nbytes)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSend(*coid, msg, nbytes, NULL, 0) != -1)
+        return 0; // worked
+
+    // send failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSend(*coid, msg, nbytes, NULL, 0) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[DRIVING] WARNING: could not send to %s\n", name);
+    return -1;
+}
+
+static int trySendPulse(int *coid, const char *name, int code, int value)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+        return 0; // worked
+
+    // pulse failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[DRIVING] WARNING: could not send pulse to %s\n", name);
+    return -1;
+}
+
+static void dispatchDriveData(DriveContext* context, int *telemetry_coid, int *vehiclesender_coid)
 {
     ProcessMsg msg;
     memset(&msg, 0, sizeof(msg));
@@ -78,8 +116,8 @@ static void dispatchDriveData(DriveContext* context, int telemetry_coid, int veh
     msg.snowmode       = context->snowMode ? 1 : 0;
     msg.speed          = context->currentSpeed;
     strncpy(msg.toggleGear, context->gear, sizeof(msg.toggleGear) - 1);
-    MsgSend(vehiclesender_coid, &msg, sizeof(msg), NULL, 0);
-    MsgSend(telemetry_coid,     &msg, sizeof(msg), NULL, 0);
+    trySendMsg(vehiclesender_coid, "vehicle_sender",   &msg, sizeof(msg));
+    trySendMsg(telemetry_coid,     "telemetry_system", &msg, sizeof(msg));
 }
 
 /// Communication ///////
@@ -112,25 +150,17 @@ static int setupCommChannels(int* telemetry_coid, int* vehiclesender_coid)
     const unsigned retry_sleep_s = 1;
 
     *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
-    if (*telemetry_coid == -1) return -1;
-    printf("[DRIVING] Connected to telemetry\n");
+    printf("[DRIVING] %s\n", *telemetry_coid != -1 ? "Connected to telemetry" : "WARNING: telemetry_system unavailable, continuing");
 
     *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
-    if (*vehiclesender_coid == -1) return -1;
-    printf("[DRIVING] Connected to vehicle sender\n");
+    printf("[DRIVING] %s\n", *vehiclesender_coid != -1 ? "Connected to vehicle sender" : "WARNING: vehicle_sender unavailable, continuing");
 
     return 0;
 }
 
-static void sendWatchdogHealthStatus(int watchdog_coid)
+static void sendWatchdogHealthStatus(int *watchdog_coid)
 {
-    if (watchdog_coid == -1)
-    {
-        printf("[DRIVING SYSTEM] cannot find CHID of watchdog\n");
-        return;
-    }
-
-    MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_DRIVE);
+    trySendPulse(watchdog_coid, "watchdog", PULSE_SUBSYSTEM_ALIVE, SUBSYS_DRIVE);
 }
 
 static void receiveMessage(DriveContext* driveContext, int rcvid, msg_packet* pkt)
@@ -188,18 +218,11 @@ int main(int argc, char *argv[])
     // connect to watchdog by name (for heartbeats)
     int watchdog_coid = -1;
     watchdog_coid = connect_by_name_with_retries("watchdog", 10, 1);
-    if (watchdog_coid == -1) {
-        printf("[DRIVING SYSTEM] Failed to connect to watchdog\n");
-        return -1;
-    }
-    printf("[DRIVING SYSTEM] Connected to Watchdog\n");
+    printf("[DRIVING SYSTEM] %s\n", watchdog_coid != -1 ? "Connected to Watchdog" : "WARNING: Watchdog unavailable, continuing");
 
-    int telemetry_coid;
-    int vehiclesender_coid;
-    if (setupCommChannels(&telemetry_coid, &vehiclesender_coid) != 0) {
-    printf("[DRIVING SYSTEM] Failed to set up communication channels\n");
-        return -1;
-    }
+    int telemetry_coid     = -1;
+    int vehiclesender_coid = -1;
+    setupCommChannels(&telemetry_coid, &vehiclesender_coid);
 
     // connect to own channel for timer pulses
     int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
@@ -227,8 +250,8 @@ int main(int argc, char *argv[])
 
         if (rcvid == 0) {
             if (buf.pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
-                sendWatchdogHealthStatus(watchdog_coid);
-                dispatchDriveData(&driveContext, telemetry_coid, vehiclesender_coid);
+                sendWatchdogHealthStatus(&watchdog_coid);
+                dispatchDriveData(&driveContext, &telemetry_coid, &vehiclesender_coid);
             }
             if (buf.pulse.code == PULSE_CHAOSMODE) {
                //chaosMode()

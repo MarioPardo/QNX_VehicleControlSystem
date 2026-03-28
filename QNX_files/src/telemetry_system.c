@@ -38,20 +38,44 @@ void build_test_telemetry(telemetry_msg *state, int tick) {
 }
 // -----------------------------------------------------------------------
 
+static int connect_by_name_with_retries(const char *name, int retries, unsigned sleep_seconds)
+{
+    for (int attempt = 0; attempt < retries; ++attempt) {
+        int coid = name_open(name, 0);
+        if (coid != -1) return coid;
+        printf("[TELEMETRY] Waiting for %s...\n", name);
+        sleep(sleep_seconds);
+    }
+    printf("[TELEMETRY] WARNING: timed out connecting to %s\n", name);
+    return -1;
+}
+
+static int trySendPulse(int *coid, const char *name, int code, int value)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+        return 0; // worked
+
+    // pulse failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[TELEMETRY] WARNING: could not send pulse to %s\n", name);
+    return -1;
+}
+
 int main(int argc, char *argv[]) {
     printf("[TELEMETRY] Starting...\n");
 
-   
     // connect to watchdog by name
     int watchdog_coid = -1;
-    while (watchdog_coid == -1) {
-        watchdog_coid = name_open("watchdog", 0);
-        if (watchdog_coid == -1) {
-            printf("[TELEMETRY] Waiting for Watchdog...\n");
-            sleep(1);
-        }
-    }
-    printf("[TELEMETRY] Connected to watchdog\n");
+    watchdog_coid = connect_by_name_with_retries("watchdog", 10, 1);
+    printf("[TELEMETRY] %s\n", watchdog_coid != -1 ? "Connected to watchdog" : "WARNING: Watchdog unavailable, continuing");
 
     // register name so other subsystems can find us
     attach = name_attach(NULL, "telemetry_system", 0);
@@ -147,7 +171,7 @@ int main(int argc, char *argv[]) {
                 
 
                 // check in with watchdog
-                MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
+                trySendPulse(&watchdog_coid, "watchdog", PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
             }
         
         // for receiving data from subsystems
