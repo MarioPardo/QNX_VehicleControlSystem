@@ -84,8 +84,8 @@ typedef enum {
 #define SYS_VEHICLE_SENDER_RESPONSETIME_MS 200
 
 //critical times : how many MS since last check in such that we kill and restart process
-#define SYS_BRAKING_CRITICALTIME_MS 10000
-#define SYS_DRIVE_CRITICALTIME_MS 6000
+#define SYS_BRAKING_CRITICALTIME_MS 2000
+#define SYS_DRIVE_CRITICALTIME_MS 3000
 #define SYS_CLIENT_CRITICALTIME_MS 2000
 #define SYS_TELEMETRY_CRITICALTIME_MS 4000
 #define SYS_VEHICLE_SENDER_CRITICALTIME_MS 4000
@@ -119,7 +119,8 @@ typedef struct
     double speed;           // current speed from sim in webots  
     double temp;            // temp value which wil be coming from webots
     char toggleGear [4];         //[ D = 0 , R = 1]
-    int chaos_active;       // Indicator of chaos mode
+    int  chaos_active;       // Indicator of chaos mode
+    char chaos_target[32];   // Name of subsystem to chaos
 
 }message ;
 

@@ -16,7 +16,6 @@ typedef struct {
 
 int sockfd;
 struct sockaddr_in dest;
-bool chaos = false;
 name_attach_t *attach;
 
 
@@ -189,15 +188,16 @@ void sendWatchdogHealthStatus(int *watchdog_coid)
     trySendPulse(watchdog_coid, "watchdog", PULSE_SUBSYSTEM_ALIVE, SUBSYS_BRAKE);
 }
 
-void chaosMode()// triggers a failure. must be restarted
+void chaosMode() // triggers a failure — watchdog will kill and restart
 {
-    printf("[BRAKE SYSTEM] CHAOS MODE ACTIVATED! \n");
-    chaos = true;
-    return;
-    
-    while(true)
-    {
-        //do nothing
+    printf("[BRAKE SYSTEM] CHAOS MODE ACTIVATED!\n");
+    // Keep replying to incoming messages so client isn't blocked.
+    // Stop heartbeating — watchdog detects the silence and kills us.
+    msg_packet buf;
+    while (1) {
+        int rcvid = MsgReceive(attach->chid, &buf, sizeof(buf), NULL);
+        if (rcvid > 0)
+            MsgReply(rcvid, EOK, NULL, 0);
     }
 }
 
