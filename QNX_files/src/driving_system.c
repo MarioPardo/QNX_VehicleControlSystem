@@ -178,6 +178,19 @@ static void receiveMessage(DriveContext* driveContext, int rcvid, msg_packet* pk
     }
 }
 
+static void chaosMode() // triggers a failure — watchdog will kill and restart
+{
+    printf("[DRIVING SYSTEM] CHAOS MODE ACTIVATED!\n");
+    // Keep replying to incoming messages so client isn't blocked.
+    // Stop heartbeating — watchdog detects the silence and kills us.
+    msg_packet buf;
+    while (1) {
+        int rcvid = MsgReceive(attach->chid, &buf, sizeof(buf), NULL);
+        if (rcvid > 0)
+            MsgReply(rcvid, EOK, NULL, 0);
+    }
+}
+
 /// Process Handling ///////
 
 static void shutdown_drive(int signo)
@@ -254,9 +267,8 @@ int main(int argc, char *argv[])
                 sendWatchdogHealthStatus(&watchdog_coid);
                 dispatchDriveData(&driveContext, &telemetry_coid, &vehiclesender_coid);
             }
-            if (buf.pulse.code == PULSE_CHAOSMODE) {
-               //chaosMode()
-            }
+            if (buf.pulse.code == PULSE_CHAOSMODE)
+                chaosMode();
         } else if (rcvid > 0) {
             receiveMessage(&driveContext, rcvid, &buf.pkt);
         }

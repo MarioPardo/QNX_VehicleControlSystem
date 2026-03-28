@@ -38,6 +38,19 @@ void build_test_telemetry(telemetry_msg *state, int tick) {
 }
 // -----------------------------------------------------------------------
 
+static void chaosMode() // triggers a failure — watchdog will kill and restart
+{
+    printf("[TELEMETRY] CHAOS MODE ACTIVATED!\n");
+    // Keep replying to incoming messages so braking/driving aren't blocked.
+    // Stop heartbeating — watchdog detects the silence and kills us.
+    ProcessMsg buf;
+    while (1) {
+        int rcvid = MsgReceive(attach->chid, &buf, sizeof(buf), NULL);
+        if (rcvid > 0)
+            MsgReply(rcvid, EOK, NULL, 0);
+    }
+}
+
 static int connect_by_name_with_retries(const char *name, int retries, unsigned sleep_seconds)
 {
     for (int attempt = 0; attempt < retries; ++attempt) {
@@ -135,7 +148,9 @@ int main(int argc, char *argv[]) {
         // for pulse check
         if (rcvid == 0) {
             // timer fired - package and send to Python //Going to fix this after testing  , promise the PULSEBAKING
-             if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) 
+             if (pulse.code == PULSE_CHAOSMODE)
+                 chaosMode();
+             else if (pulse.code == PULSE_SUBSYSTEM_INTERNAL)
              {
 
                 // build_test_telemetry(&state, tick++); // disabled: real data from subsystems

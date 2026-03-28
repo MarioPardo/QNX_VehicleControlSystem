@@ -42,7 +42,6 @@ class Dashboard(QWidget):
         self.brake = 0.0
         self.steering = 0.0
         self.snow_mode = False
-        self.chaos_until = 0   # chaos
         self.gear = "D"
 
         # SPEED DISPLAY
@@ -91,10 +90,6 @@ class Dashboard(QWidget):
         self.snow_btn = QPushButton("Snow Mode OFF")
         self.snow_btn.clicked.connect(self.toggle_snow_mode)
 
-        # CHAOS BUTTON
-        self.chaos_btn = QPushButton("Inject Chaos")
-        self.chaos_btn.clicked.connect(self.trigger_chaos)
-
         button_style = """
         QPushButton {
             font-size: 16px;
@@ -114,7 +109,6 @@ class Dashboard(QWidget):
         self.throttle_btn.setStyleSheet(button_style)
         self.brake_btn.setStyleSheet(button_style)
         self.snow_btn.setStyleSheet(button_style)
-        self.chaos_btn.setStyleSheet(button_style)
 
         # Steering slider
         self.steering_slider = QSlider(Qt.Horizontal)
@@ -164,7 +158,26 @@ class Dashboard(QWidget):
         control_layout.addWidget(self.throttle_btn)
         control_layout.addWidget(self.brake_btn)
         control_layout.addWidget(self.snow_btn)
-        control_layout.addWidget(self.chaos_btn)
+
+        # CHAOS ROW
+        chaos_layout = QHBoxLayout()
+        chaos_label = QLabel("CHAOS")
+        chaos_label.setStyleSheet("font-size: 16px; font-weight: bold; color: red;")
+        chaos_layout.addWidget(chaos_label)
+        chaos_subsystems = [
+            ("Braking",        "braking_system"),
+            ("Driving",        "driving_system"),
+            ("Telemetry",      "telemetry_system"),
+            ("Vehicle Sender", "vehicle_sender"),
+            ("Client",         "client"),
+        ]
+        self.chaos_btns = {}
+        for display_name, subsys_name in chaos_subsystems:
+            btn = QPushButton(display_name)
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(lambda checked, s=subsys_name: self.trigger_chaos(s))
+            chaos_layout.addWidget(btn)
+            self.chaos_btns[subsys_name] = (btn, display_name, button_style)
 
         main_layout.addWidget(self.health_label)
         main_layout.addWidget(self.warning_label)
@@ -172,6 +185,7 @@ class Dashboard(QWidget):
         main_layout.addWidget(self.speed_unit)
         main_layout.addWidget(self.gear_label)
         main_layout.addLayout(control_layout)
+        main_layout.addLayout(chaos_layout)
 
         main_layout.addWidget(QLabel("Steering"))
         main_layout.addWidget(self.steering_slider)
@@ -238,13 +252,6 @@ class Dashboard(QWidget):
 
     def send_controls(self):
 
-        chaos_active = time.time() < self.chaos_until
-
-        if chaos_active:
-            self.chaos_btn.setText("CHAOS ACTIVE")
-        else:
-            self.chaos_btn.setText("Inject Chaos")
-
         # BRAKE MESSAGE
         brake_msg = {
             "origin": "UserInput",
@@ -272,26 +279,15 @@ class Dashboard(QWidget):
             }
         }
 
-        # MODE MESSAGE
-        mode_msg = {
-            "origin": "UserInput",
-            "subsys": "Mode",
-            "data": {
-                "chaos": "brake" if chaos_active else None
-            }
-        }
-
-        # SEND 
+        # SEND
         self.sock.sendto(json.dumps(brake_msg).encode(), self.server_address)
         self.sock.sendto(json.dumps(driving_msg).encode(), self.server_address)
-        self.sock.sendto(json.dumps(mode_msg).encode(), self.server_address)
 
 
 
     
     # PROCESS TELEMETRY
     def process_packet(self, json_data):
-        print(f"[DASHBOARD] received: {json_data}")
         message = json.loads(json_data)
 
         if message["type"] == "VehicleTelemetry":
@@ -360,10 +356,16 @@ class Dashboard(QWidget):
         self.snow_mode = not self.snow_mode
         self.snow_btn.setText("Snow Mode ON" if self.snow_mode else "Snow Mode OFF")
 
-    # CHAOS TRIGGER (3 seconds)
-    def trigger_chaos(self):
-        print("[CHAOS] Injecting brake failure for 3 seconds")
-        self.chaos_until = time.time() + 3
+    # CHAOS TRIGGER — fire and forget, one packet; button stays lit for 3s
+    def trigger_chaos(self, subsys):
+        print(f"[CHAOS] Injecting chaos into {subsys}")
+        msg = {"origin": "UserInput", "subsys": "Mode", "data": {"chaos": subsys}}
+        self.sock.sendto(json.dumps(msg).encode(), self.server_address)
+
+        btn, display_name, normal_style = self.chaos_btns[subsys]
+        btn.setText(f"{display_name} — CHAOS ACTIVE")
+        btn.setStyleSheet("font-size: 16px; padding: 8px; border-radius: 8px; background-color: #dc2626; color: white;")
+        QTimer.singleShot(3000, lambda: (btn.setText(display_name), btn.setStyleSheet(normal_style)))
 
     def update_plots(self):
         self.speed_curve.setData(self.time_data, self.speed_data)

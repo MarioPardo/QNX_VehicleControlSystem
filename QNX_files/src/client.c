@@ -8,7 +8,10 @@
 int sockfd;
 struct sockaddr_in dest;
 name_attach_t *attach;
-int watchdog_coid = -1;
+int watchdog_coid      = -1;
+int telemetry_coid     = -1;
+int vehiclesender_coid = -1;
+int self_coid          = -1;  // connection to own channel for self-chaos
 
 void shutdown_client(int signo) {
     exit(0);  // triggers atexit handlers safely
@@ -69,6 +72,12 @@ static int trySendPulse(int *coid, const char *name, int code, int value)
     return -1;
 }
 
+void chaosMode(void)
+{
+    printf("[CLIENT] CHAOS MODE ACTIVATED!\n");
+    while(1) {}
+}
+
 void sendWatchdogHealthStatus(void)
 {
     trySendPulse(&watchdog_coid, "watchdog", PULSE_SUBSYSTEM_ALIVE, SUBSYS_CLIENT);
@@ -76,10 +85,10 @@ void sendWatchdogHealthStatus(void)
 
 void *watchdog_thread(void *arg)
 {
-    int my_coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
+    self_coid = ConnectAttach(ND_LOCAL_NODE, 0, attach->chid, _NTO_SIDE_CHANNEL, 0);
 
     struct sigevent event;
-    SIGEV_PULSE_INIT(&event, my_coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_SUBSYSTEM_INTERNAL, SUBSYS_CLIENT);
+    SIGEV_PULSE_INIT(&event, self_coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_SUBSYSTEM_INTERNAL, SUBSYS_CLIENT);
     timer_t timer_id;
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
 
@@ -94,6 +103,8 @@ void *watchdog_thread(void *arg)
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
         if (rcvid == 0 && pulse.code == PULSE_SUBSYSTEM_INTERNAL)
             sendWatchdogHealthStatus();
+        else if (rcvid == 0 && pulse.code == PULSE_CHAOSMODE)
+            chaosMode();
     }
     return NULL;
 }
@@ -121,9 +132,14 @@ void main_qnx_receiver(int sockfd, int *brake_coid, int *drive_coid) {
            // printf("[CLIENT] : Received driving data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Mode") == 0) {
-            
-            // TODO Mode process for this to be implemented
-           // printf("[CLIENT] : Received Mode data from Dashboard \n");
+            if (p.msg.chaos_active) {
+                printf("[CLIENT] Routing chaos to: %s\n", p.msg.chaos_target);
+                if      (strcmp(p.msg.chaos_target, "braking_system")   == 0) trySendPulse(brake_coid,           "braking_system",   PULSE_CHAOSMODE, 0);
+                else if (strcmp(p.msg.chaos_target, "driving_system")   == 0) trySendPulse(drive_coid,           "driving_system",   PULSE_CHAOSMODE, 0);
+                else if (strcmp(p.msg.chaos_target, "telemetry_system") == 0) trySendPulse(&telemetry_coid,      "telemetry_system", PULSE_CHAOSMODE, 0);
+                else if (strcmp(p.msg.chaos_target, "vehicle_sender")   == 0) trySendPulse(&vehiclesender_coid,  "vehicle_sender",   PULSE_CHAOSMODE, 0);
+                else if (strcmp(p.msg.chaos_target, "client")           == 0) MsgSendPulse(self_coid, -1, PULSE_CHAOSMODE, 0);
+            }
         }
 
 
@@ -154,6 +170,12 @@ void connect_to_processes(int *brake_coid, int *driving_coid)
 
     *driving_coid = connect_by_name_with_retries("driving_system", max_retries, 1);
     printf("[CLIENT] %s\n", *driving_coid != -1 ? "Connected to driving" : "WARNING: driving_system unavailable, continuing");
+
+    telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, 1);
+    printf("[CLIENT] %s\n", telemetry_coid != -1 ? "Connected to telemetry" : "WARNING: telemetry_system unavailable, continuing");
+
+    vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, 1);
+    printf("[CLIENT] %s\n", vehiclesender_coid != -1 ? "Connected to vehicle sender" : "WARNING: vehicle_sender unavailable, continuing");
 }
 
 

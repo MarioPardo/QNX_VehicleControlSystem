@@ -145,9 +145,11 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
     else if (strcmp(p->subsys, "Mode") == 0) {
 
         cJSON *chaos = cJSON_GetObjectItemCaseSensitive(data, "chaos");
-        if (cJSON_IsString(chaos) && strlen(chaos->valuestring) > 0)
+        if (cJSON_IsString(chaos) && strlen(chaos->valuestring) > 0) {
             p->msg.chaos_active = 1;
-        // if null → chaos_active stays 0
+            strncpy(p->msg.chaos_target, chaos->valuestring, sizeof(p->msg.chaos_target) - 1);
+            p->msg.chaos_target[sizeof(p->msg.chaos_target) - 1] = '\0';
+        }
     }
 
     // ----------------------------------------------------------
