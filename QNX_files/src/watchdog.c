@@ -63,8 +63,12 @@ void on_child_exit(int signo) //Child process has died, we are now ready to spaw
     while ((dead_pid = waitpid(-1, NULL, WNOHANG)) > 0) {
         for (int i = 0; i < MAX_SUBSYSTEMS; i++)
         {
-            if (processTable[i].pid == dead_pid && processTable[i].lifeStatus == DEAD)
+            if (processTable[i].pid == dead_pid) {
+                if (processTable[i].lifeStatus != DEAD)
+                    printf("[WATCHDOG] %s died unexpectedly, scheduling restart\n",
+                           processTable[i].subsystemName);
                 processTable[i].lifeStatus = RESTARTING;
+            }
         }
     }
 }
