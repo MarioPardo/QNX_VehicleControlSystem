@@ -34,7 +34,7 @@
 #define DEST_IP     "192.168.56.1"  //PC IP address
 
 
-void receiver_setup();
+int receiver_setup();
 int sender_setup(const char *ip, int port,struct sockaddr_in *dst);
 
 

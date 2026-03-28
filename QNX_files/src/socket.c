@@ -12,17 +12,17 @@ int sender_setup(const char *ip, int port , struct sockaddr_in *dst) {
 
     
     memset(dst, 0, sizeof(*dst));
-    dst.sin_family = AF_INET;
-    dst.sin_port   = htons(port);
-    inet_pton(AF_INET, ip, &dst.sin_addr);
+    dst->sin_family = AF_INET;
+    dst->sin_port   = htons(port);
+    inet_pton(AF_INET, ip, &dst->sin_addr);
 
     return fd;
 }
 
-void receiver_setup(){
+int receiver_setup(){
 
      // setup socket
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     // bind so we can receive
     struct sockaddr_in local;
@@ -31,5 +31,6 @@ void receiver_setup(){
     local.sin_port        = htons(LISTEN_PORT);
     local.sin_addr.s_addr = INADDR_ANY;
     bind(sockfd, (struct sockaddr*)&local, sizeof(local));
+    return fd;
 }
 
