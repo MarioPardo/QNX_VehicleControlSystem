@@ -47,7 +47,7 @@ void processUserBrakeInput(BrakingContext* context, float brakeLevel)
     context->currentBrakeLevel = newBrakeLevel;
 
     //print received data and new brake level
-    printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f \n", brakeLevel, context->currentBrakeLevel);
+   // printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f \n", brakeLevel, context->currentBrakeLevel);
 }
 
 
@@ -66,7 +66,7 @@ void processVehicleBrakeData(BrakingContext* context, float brakeTemp)
 
 
     //print received data and new safe brake level
-    printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
+   // printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
 
     return;
 }

@@ -51,19 +51,21 @@ static void processUserDriveInput(DriveContext* context, float throttleLevel, fl
     context->gear[0] = gear[0];
     context->gear[1] = '\0';
 
+    /*    
     printf("[DRIVING SYSTEM] User input -> throttle: %.2f (max %.2f) steering: %.2f snowMode: %s gear: %s\n",
            context->currentThrottleLevel,
            context->maxThrottleLevel,
            context->currentSteeringAngle,
            context->snowMode ? "true" : "false",
            context->gear);
+           */
            
 }
 
 static void processVehicleDriveData(DriveContext* context, float speed_kmh)
 {
     context->currentSpeed = speed_kmh;
-    printf("[DRIVING SYSTEM] Vehicle data -> speed: %.2f km/h\n", context->currentSpeed);
+   // printf("[DRIVING SYSTEM] Vehicle data -> speed: %.2f km/h\n", context->currentSpeed);
 }
 
 static void dispatchDriveData(DriveContext* context, int telemetry_coid, int vehiclesender_coid)

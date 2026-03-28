@@ -1,17 +1,4 @@
-// Well
-
-// Define this as the temporary telemetry process for now to work on this
-
-// So we receive data from the various processes we have and from then on we have 
-
-//Ok ill call this telemetry for now and use this to test out my data parser , and establish connection right now ,
-
-// Pipeline I want working at bare minimum 
-
-//Sending pipeline
-//----------------------------------------------------------------
-// brake.c    ──── MsgSend ────► telemetry.c ──── UDP ────► Python Dashboard
-
+//Responsible for sending Telemetry data back to user dashboard
 
 // telemetry.c
 #include "includes/defs.h"
@@ -96,8 +83,8 @@ int main(int argc, char *argv[]) {
     timer_t timer_id;
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
     struct itimerspec itime;
-    itime.it_value.tv_sec  = 1;               // 1 second cycle (debug)
-    itime.it_value.tv_nsec = 0;
+    itime.it_value.tv_sec  = SYS_TELEMETRY_RESPONSETIME_MS / 1000;
+    itime.it_value.tv_nsec = (SYS_TELEMETRY_RESPONSETIME_MS % 1000) * 1000000;
     itime.it_interval      = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
@@ -153,7 +140,7 @@ int main(int argc, char *argv[]) {
 
                 // convert and send to Python
                 char *json = telemetry_to_json(&t);
-                printf("[TELEMETRY] sending to dashboard: %s\n", json);
+                //printf("[TELEMETRY] sending to dashboard: %s\n", json);
                 sendto(sockfd, json, strlen(json), 0,
                        (struct sockaddr *)&dest, sizeof(dest));
                 free(json);
@@ -163,7 +150,7 @@ int main(int argc, char *argv[]) {
                 MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
             }
         
-        // for receving data from subsystems
+        // for receiving data from subsystems
         } else if (rcvid > 0) {
             // message from a subsystem
             // This is what the subsystems should be sending 
@@ -173,12 +160,9 @@ int main(int argc, char *argv[]) {
 
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
-                    printf("[TELEMETRY] Hello from brake\n");
-
                     // append brake warnings if any were sent
                     for (int i = 0; i < msg.brake_warning_count; i++) {
                         if (state.warning_count >= 10){
-                            printf("[TELEMETRY] Brake warning count over limit");
                             break;  // don't overflow state array
                         }
                         strncpy(state.warnings[state.warning_count], msg.brake_warnings[i], 63);
@@ -188,7 +172,6 @@ int main(int argc, char *argv[]) {
                     break;
 
                 case SUBSYS_DRIVE:
-                    printf("[TELEMETRY] Hello from driving\n");
                     state.speed     = msg.speed;
                     state.snow_mode = msg.snowmode;
 

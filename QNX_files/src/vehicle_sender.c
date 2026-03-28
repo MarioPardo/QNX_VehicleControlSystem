@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
                 char *json = sim_data_to_json(&state);
                 sendto(sockfd, json, strlen(json), 0,
                        (struct sockaddr *)&dest, sizeof(dest));
-                printf("[VEHICLE_SENDER-JSON-STRING] sent to Webots: %s\n", json);
+                //printf("[VEHICLE_SENDER-JSON-STRING] sent to Webots: %s\n", json);
                 free(json);
 
                 // check in with watchdog
@@ -119,12 +119,10 @@ int main(int argc, char *argv[]) {
 
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
-                    printf("[VEHICLE_SENDER] Brake update received\n");
                     state.data.brake_level = msg.brake_level;
                     break;
 
                 case SUBSYS_DRIVE:
-                    printf("[VEHICLE_SENDER] Drive update received\n");
                     state.data.throttle_level = msg.throttle_level;
                     state.data.steering_level = msg.steering_angle;
                     state.data.snow_mode      = msg.snowmode;
@@ -132,12 +130,10 @@ int main(int argc, char *argv[]) {
                     break;
 
                 case SUBSYS_STEERING:
-                    printf("[VEHICLE_SENDER] Steering update received\n");
                     state.data.steering_level = msg.steering_angle;
                     break;
 
                 default:
-                    printf("[VEHICLE_SENDER] Unknown subsystem: %d\n", msg.subsys);
                     break;
             }
             MsgReply(rcvid, EOK, NULL, 0);
