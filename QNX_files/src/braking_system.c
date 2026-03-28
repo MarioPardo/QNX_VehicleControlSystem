@@ -124,7 +124,7 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
     *watchdog_coid = connect_by_name_with_retries("watchdog", max_retries, retry_sleep_s);
     if (*watchdog_coid == -1) return -1;
     printf("[BRAKE] Connected to Watchdog\n");
-
+    
 
     // connect to telemetry
     *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
@@ -133,7 +133,7 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
 
 
     //connect to vehicle sender
-    *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
+   *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
     if (*vehiclesender_coid == -1) return -1;
     printf("[BRAKE] Connected to vehicle sender\n");
 

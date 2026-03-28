@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
                 char *json = sim_data_to_json(&state);
                 sendto(sockfd, json, strlen(json), 0,
                        (struct sockaddr *)&dest, sizeof(dest));
-                printf("[VEHICLE_SENDER-JSON-STRING] sent to Webots: %s\n", json);
+                //printf("[VEHICLE_SENDER-JSON-STRING] sent to Webots: %s\n", json);
                 free(json);
 
                 // check in with watchdog
