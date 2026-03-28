@@ -57,16 +57,19 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         if (n < 0) continue;
         buffer[n] = '\0';
 
+        printf("[CLIENT] raw received: %s\n", buffer);
+
         // parse JSON into msg_packet
         msg_packet p;
         json_to_msg_packet(buffer, &p);
+        printf("[CLIENT] parsed -> origin=%s subsys=%s speed=%.2f\n", p.origin, p.subsys, p.msg.speed);
 
         //From here then on send the data to appropriate processes , braking etc 
         if (strcmp(p.subsys, "Brake") == 0) {
             MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
            // printf("[CLIENT] : Received Braking data from Dashboard \n");
         }
-        else if (strcmp(p.subsys, "Driving") == 0) {
+        else if (strcmp(p.subsys, "Drive") == 0) {
             
             MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
            // printf("[CLIENT] : Received driving data from Dashboard \n");

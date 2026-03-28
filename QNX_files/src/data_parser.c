@@ -108,7 +108,7 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
     //                                            "throttle": { "level": 0.6 },
     //                                            "gear": "D" } }
     // ----------------------------------------------------------
-    else if (strcmp(p->subsys, "Driving") == 0) {
+    else if (strcmp(p->subsys, "Drive") == 0) {
 
         cJSON *steering = cJSON_GetObjectItemCaseSensitive(data, "steering");
         if (cJSON_IsObject(steering)) {
@@ -129,6 +129,10 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
             strncpy(p->msg.toggleGear, gear->valuestring, sizeof(p->msg.toggleGear) - 1);
             p->msg.toggleGear[sizeof(p->msg.toggleGear) - 1] = '\0';
         }
+
+        cJSON *speed = cJSON_GetObjectItemCaseSensitive(data, "speed");
+        if (cJSON_IsNumber(speed))
+            p->msg.speed = speed->valuedouble;
     }
 
     // ----------------------------------------------------------

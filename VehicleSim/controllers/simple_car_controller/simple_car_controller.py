@@ -178,6 +178,7 @@ class VehicleManager:
             "subsys": "Drive",
             "data": {"speed": speed},
         }
+        print(f"[WEBOTS] sending drive telemetry: speed={speed}")
         self.udp_comm.send_json_message(message)
 
     def send_telemetry(self):

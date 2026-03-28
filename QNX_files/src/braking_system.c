@@ -78,6 +78,7 @@ void dispatchBrakeData(BrakingContext* context, int telemetry_coid, int vehicles
     msg.subsys      = SUBSYS_BRAKE;
     msg.brake_level = context->currentBrakeLevel;
     MsgSend(vehiclesender_coid, &msg, sizeof(msg), NULL, 0);
+    MsgSend(telemetry_coid,     &msg, sizeof(msg), NULL, 0);
 }
 
 /// Communication ///////

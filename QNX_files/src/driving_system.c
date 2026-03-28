@@ -74,8 +74,10 @@ static void dispatchDriveData(DriveContext* context, int telemetry_coid, int veh
     msg.throttle_level = context->currentThrottleLevel;
     msg.steering_angle = context->currentSteeringAngle;
     msg.snowmode       = context->snowMode ? 1 : 0;
+    msg.speed          = context->currentSpeed;
     strncpy(msg.toggleGear, context->gear, sizeof(msg.toggleGear) - 1);
     MsgSend(vehiclesender_coid, &msg, sizeof(msg), NULL, 0);
+    MsgSend(telemetry_coid,     &msg, sizeof(msg), NULL, 0);
 }
 
 /// Communication ///////
@@ -107,6 +109,10 @@ static int setupCommChannels(int* telemetry_coid, int* vehiclesender_coid)
     const int max_retries = 10;
     const unsigned retry_sleep_s = 1;
 
+    *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
+    if (*telemetry_coid == -1) return -1;
+    printf("[DRIVING] Connected to telemetry\n");
+
     *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
     if (*vehiclesender_coid == -1) return -1;
     printf("[DRIVING] Connected to vehicle sender\n");
@@ -129,7 +135,7 @@ static void receiveMessage(DriveContext* driveContext, int rcvid, msg_packet* pk
 {
     MsgReply(rcvid, 0, NULL, 0);
 
-    if (strcmp(pkt->subsys, "Driving") != 0)
+    if (strcmp(pkt->subsys, "Drive") != 0)
         return;
 
     if (strcmp(pkt->origin, "UserInput") == 0) {

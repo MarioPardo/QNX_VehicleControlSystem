@@ -127,9 +127,7 @@ int main(int argc, char *argv[]) {
              if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) 
              {
 
-                // TEMP: Adds fake data to populate state for pipeline testing
-                build_test_telemetry(&state, tick++);
-                // ↑ remove this line once real process data is flowing
+                // build_test_telemetry(&state, tick++); // disabled: real data from subsystems
 
 
                 //TODO should be two separate functions below
@@ -155,11 +153,10 @@ int main(int argc, char *argv[]) {
 
                 // convert and send to Python
                 char *json = telemetry_to_json(&t);
+                printf("[TELEMETRY] sending to dashboard: %s\n", json);
                 sendto(sockfd, json, strlen(json), 0,
                        (struct sockaddr *)&dest, sizeof(dest));
                 free(json);
-
-                printf("[TELEMETRY] packet sent to Python\n");
                 
 
                 // check in with watchdog
@@ -177,7 +174,6 @@ int main(int argc, char *argv[]) {
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
                     printf("[TELEMETRY] Hello from brake\n");
-                    state.speed = msg.speed;
 
                     // append brake warnings if any were sent
                     for (int i = 0; i < msg.brake_warning_count; i++) {
@@ -193,6 +189,7 @@ int main(int argc, char *argv[]) {
 
                 case SUBSYS_DRIVE:
                     printf("[TELEMETRY] Hello from driving\n");
+                    state.speed     = msg.speed;
                     state.snow_mode = msg.snowmode;
 
                     for (int i = 0; i < msg.speed_warning_count; i++) {

@@ -259,7 +259,7 @@ class Dashboard(QWidget):
         # DRIVING MESSAGE
         driving_msg = {
             "origin": "UserInput",
-            "subsys": "Driving",
+            "subsys": "Drive",
             "data": {
                 "steering": {
                     "angle": self.steering
@@ -291,7 +291,7 @@ class Dashboard(QWidget):
     
     # PROCESS TELEMETRY
     def process_packet(self, json_data):
-
+        print(f"[DASHBOARD] received: {json_data}")
         message = json.loads(json_data)
 
         if message["type"] == "VehicleTelemetry":
@@ -315,24 +315,23 @@ class Dashboard(QWidget):
 
             self.last_packet_time = time.time()
 
-        now = time.time()
+            now = time.time()
 
-        # track packets (last 1 second)
-        self.packet_times.append(now)
-        self.packet_times = [t for t in self.packet_times if now - t <= 1]
+            # track packets (last 1 second)
+            self.packet_times.append(now)
+            self.packet_times = [t for t in self.packet_times if now - t <= 1]
 
-        freq = len(self.packet_times)
+            freq = len(self.packet_times)
+            current_time = now - self.start_time
 
-        current_time = now - self.start_time
+            self.time_data.append(current_time)
+            self.speed_data.append(data["Speed"])
+            self.freq_data.append(freq)
 
-        self.time_data.append(current_time)
-        self.speed_data.append(data["Speed"])
-        self.freq_data.append(freq)
-
-        MAX = 200
-        self.time_data = self.time_data[-MAX:]
-        self.speed_data = self.speed_data[-MAX:]
-        self.freq_data = self.freq_data[-MAX:]
+            MAX = 200
+            self.time_data = self.time_data[-MAX:]
+            self.speed_data = self.speed_data[-MAX:]
+            self.freq_data = self.freq_data[-MAX:]
 
     def check_connection(self):
         if time.time() - self.last_packet_time > 3:
