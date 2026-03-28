@@ -3,44 +3,26 @@
 // Used to setup socket connection thus far
 // Might be more to come 
 
-void socket_setup(){
-    // setup socket
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+int sender_setup(const char *ip, int port , struct sockaddr_in *dst) {
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        printf("[SOCKET] Failed to create send socket\n");
+        return -1;
+    }
 
-    // bind so we can receive
-    struct sockaddr_in local;
-    memset(&local, 0, sizeof(local));
-    local.sin_family      = AF_INET;
-    local.sin_port        = htons(LISTEN_PORT);
-    local.sin_addr.s_addr = INADDR_ANY;
-    bind(sockfd, (struct sockaddr*)&local, sizeof(local));
+    
+    memset(dst, 0, sizeof(*dst));
+    dst->sin_family = AF_INET;
+    dst->sin_port   = htons(port);
+    inet_pton(AF_INET, ip, &dst->sin_addr);
 
-    // setup destination
-    memset(&dest, 0, sizeof(dest));
-    dest.sin_family = AF_INET;
-    dest.sin_port   = htons(SEND_PORT);
-    inet_pton(AF_INET, DEST_IP, &dest.sin_addr);
-
-
+    return fd;
 }
 
-void sender_setup(){
-    // setup socket
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-    // setup destination
-    memset(&dest, 0, sizeof(dest));
-    dest.sin_family = AF_INET;
-    dest.sin_port   = htons(SEND_PORT);
-    inet_pton(AF_INET, DEST_IP, &dest.sin_addr);
-
-
-}
-
-void receiver_setup(){
+int receiver_setup(){
 
      // setup socket
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     // bind so we can receive
     struct sockaddr_in local;
@@ -48,6 +30,7 @@ void receiver_setup(){
     local.sin_family      = AF_INET;
     local.sin_port        = htons(LISTEN_PORT);
     local.sin_addr.s_addr = INADDR_ANY;
-    bind(sockfd, (struct sockaddr*)&local, sizeof(local));
+    bind(fd, (struct sockaddr*)&local, sizeof(local));
+    return fd;
 }
 

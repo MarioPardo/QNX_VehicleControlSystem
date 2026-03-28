@@ -193,6 +193,10 @@ void beginSubsystems() {
         printf("[WATCHDOG] Failed to spawn Telemetry System\n");
     }
 
+    if (spawn_subsystem("./vehicle_sender", "vehicle_sender", SUBSYS_VEHICLE_SENDER, SYS_VEHICLE_SENDER_RESPONSETIME_MS, "Vehicle Sender") == -1) {
+        printf("[WATCHDOG] Failed to spawn Vehicle Sender\n");
+    }
+
     if (spawn_subsystem("./braking_system",   "braking_system", SUBSYS_BRAKE, SYS_BRAKING_RESPONSETIME_MS, "Braking System")  == -1) {
         printf("[WATCHDOG] Failed to spawn Braking System\n");
     }

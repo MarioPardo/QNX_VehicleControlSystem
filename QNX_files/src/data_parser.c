@@ -15,8 +15,9 @@ void packet_init(msg_packet *c)
 //Have to use as memset values correspond to expected values in webots
 //This just initializes the struct with the default values to symbolize it empty or unchanged . For now im using the value -9999 (OUT OF RANGE)
 void vc_init(vehicle_controls *vc){
+    memset(vc, 0, sizeof(*vc));
     strcpy(vc->subsys, "");
-    strcpy(vc->data.toggleGear, "");
+    strcpy(vc->data.toggleGear, "D");  //->used D as a safe default
     vc->data.throttle_level = -9999;
     vc->data.brake_level = -9999;
     vc->data.steering_level = -9999;  
@@ -193,7 +194,7 @@ char* sim_data_to_json(vehicle_controls *v){
     //snowmode here is being passed as an int repping true/false
     cJSON_AddNumberToObject(data, "snow_mode", v->data.snow_mode);
     
-    cJSON_AddStringToObject(data, "toggleGear",     v->data.toggleGear);
+    cJSON_AddStringToObject(data, "toggleGear",v->data.toggleGear);
 
 
     cJSON_AddItemToObject(root, "data", data);

@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
 
     // setup UDP socket for receiving from Python    
-    receiver_setup();
+    sockfd=receiver_setup();
 
     printf("[CLIENT] Listening on port %d\n", LISTEN_PORT);
 
