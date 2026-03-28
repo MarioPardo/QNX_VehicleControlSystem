@@ -119,21 +119,11 @@ class Dashboard(QWidget):
         # DATA FOR PLOTS
         self.packet_times = []
         self.time_data = []
-        self.speed_data = []
         self.freq_data = []
         self.start_time = time.time()
 
         # PLOTS
         self.plot_widget = pg.GraphicsLayoutWidget()
-
-        # SPEED PLOT
-        self.speed_plot = self.plot_widget.addPlot(title="Speed (km/h)")
-        self.speed_plot.setLabel('left', 'Speed', units='km/h')
-        self.speed_plot.setLabel('bottom', 'Time', units='s')
-        self.speed_plot.showGrid(x=True, y=True)
-        self.speed_curve = self.speed_plot.plot(pen='c')
-
-        self.plot_widget.nextRow()
 
         # FREQUENCY PLOT
         self.freq_plot = self.plot_widget.addPlot(title="Telemetry Frequency (Hz)")
@@ -316,12 +306,10 @@ class Dashboard(QWidget):
             current_time = now - self.start_time
 
             self.time_data.append(current_time)
-            self.speed_data.append(data["Speed"])
             self.freq_data.append(freq)
 
             MAX = 200
             self.time_data = self.time_data[-MAX:]
-            self.speed_data = self.speed_data[-MAX:]
             self.freq_data = self.freq_data[-MAX:]
 
     def check_connection(self):
@@ -368,7 +356,6 @@ class Dashboard(QWidget):
         QTimer.singleShot(3000, lambda: (btn.setText(display_name), btn.setStyleSheet(normal_style)))
 
     def update_plots(self):
-        self.speed_curve.setData(self.time_data, self.speed_data)
         self.freq_curve.setData(self.time_data, self.freq_data)
 
 app = QApplication(sys.argv)
