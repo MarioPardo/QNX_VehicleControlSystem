@@ -19,10 +19,59 @@ void cleanup_client(void) {
     name_detach(attach, 0);
 }
 
+static int connect_by_name_with_retries(const char *name, int retries, unsigned sleep_seconds)
+{
+    for (int attempt = 0; attempt < retries; ++attempt) {
+        int coid = name_open(name, 0);
+        if (coid != -1) return coid;
+        printf("[CLIENT] Waiting for %s...\n", name);
+        sleep(sleep_seconds);
+    }
+    printf("[CLIENT] WARNING: timed out connecting to %s\n", name);
+    return -1;
+}
+
+static int trySendMsg(int *coid, const char *name, const void *msg, int nbytes)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSend(*coid, msg, nbytes, NULL, 0) != -1)
+        return 0; // worked
+
+    // send failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSend(*coid, msg, nbytes, NULL, 0) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[CLIENT] WARNING: could not send to %s\n", name);
+    return -1;
+}
+
+static int trySendPulse(int *coid, const char *name, int code, int value)
+{
+    const int numRetries = 3;
+
+    if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+        return 0; // worked
+
+    // pulse failed — process may be down; try to reconnect and resend
+    for (int i = 0; i < numRetries; i++) {
+        if (*coid != -1) name_close(*coid);
+        *coid = name_open(name, 0);
+        if (*coid != -1 && MsgSendPulse(*coid, -1, code, value) != -1)
+            return 0; // reconnected and sent
+        usleep(50000);
+    }
+    printf("[CLIENT] WARNING: could not send pulse to %s\n", name);
+    return -1;
+}
+
 void sendWatchdogHealthStatus(void)
 {
-    if (watchdog_coid == -1) return;
-    MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_CLIENT);
+    trySendPulse(&watchdog_coid, "watchdog", PULSE_SUBSYSTEM_ALIVE, SUBSYS_CLIENT);
 }
 
 void *watchdog_thread(void *arg)
@@ -49,9 +98,9 @@ void *watchdog_thread(void *arg)
     return NULL;
 }
 
-void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
+void main_qnx_receiver(int sockfd, int *brake_coid, int *drive_coid) {
     char buffer[1024];
-    
+
     while (1) {
         int n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, NULL, NULL);
         if (n < 0) continue;
@@ -62,14 +111,13 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         json_to_msg_packet(buffer, &p);
         //printf("[CLIENT] parsed -> origin=%s subsys=%s speed=%.2f\n", p.origin, p.subsys, p.msg.speed);
 
-        //From here then on send the data to appropriate processes , braking etc 
+        //From here then on send the data to appropriate processes , braking etc
         if (strcmp(p.subsys, "Brake") == 0) {
-            MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
+            trySendMsg(brake_coid, "braking_system", &p, sizeof(p));
            // printf("[CLIENT] : Received Braking data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Drive") == 0) {
-            
-            MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
+            trySendMsg(drive_coid, "driving_system", &p, sizeof(p));
            // printf("[CLIENT] : Received driving data from Dashboard \n");
         }
         else if (strcmp(p.subsys, "Mode") == 0) {
@@ -97,27 +145,15 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
 //TODO if client is a process it must start checking in with watchdog potentially to prevent it from dying as well
 
 // ------------------------------------------------------------------------------------------------------------------------
-void connect_to_processes(int *brake_coid , int *driving_coid){
-    while (*brake_coid == -1) {
-        *brake_coid = name_open("braking_system", 0);
-        if (*brake_coid == -1) {
-            printf("[CLIENT] Waiting for braking...\n");
-            sleep(1);
-        }
-    }
-    printf("[CLIENT] Connected to braking\n");
+void connect_to_processes(int *brake_coid, int *driving_coid)
+{
+    const int max_retries = 10;
 
-    while (*driving_coid == -1) {
-        *driving_coid = name_open("driving_system", 0);
-        if (*driving_coid == -1) {
-            printf("[CLIENT] Waiting for driving system...\n");
-            sleep(1);
-        }
-    }
-    printf("[CLIENT] Connected to driving\n");
+    *brake_coid = connect_by_name_with_retries("braking_system", max_retries, 1);
+    printf("[CLIENT] %s\n", *brake_coid != -1 ? "Connected to braking" : "WARNING: braking_system unavailable, continuing");
 
-
-
+    *driving_coid = connect_by_name_with_retries("driving_system", max_retries, 1);
+    printf("[CLIENT] %s\n", *driving_coid != -1 ? "Connected to driving" : "WARNING: driving_system unavailable, continuing");
 }
 
 
@@ -143,14 +179,8 @@ int main(int argc, char *argv[]) {
     connect_to_processes(&brake_coid , &driving_coid);
 
     // connect to watchdog
-    while (watchdog_coid == -1) {
-        watchdog_coid = name_open("watchdog", 0);
-        if (watchdog_coid == -1) {
-            printf("[CLIENT] Waiting for watchdog...\n");
-            sleep(1);
-        }
-    }
-    printf("[CLIENT] Connected to watchdog\n");
+    watchdog_coid = connect_by_name_with_retries("watchdog", 10, 1);
+    printf("[CLIENT] %s\n", watchdog_coid != -1 ? "Connected to watchdog" : "WARNING: Watchdog unavailable, continuing");
 
     // start watchdog heartbeat thread
     pthread_t wd_thread;
@@ -164,7 +194,7 @@ int main(int argc, char *argv[]) {
     // start receiving
    
     //Receives all incoming traffic into QNX port , contains all process id's that would be needed in transfer of data
-    main_qnx_receiver(sockfd, brake_coid , driving_coid );
+    main_qnx_receiver(sockfd, &brake_coid, &driving_coid);
 
 
     return 0;

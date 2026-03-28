@@ -11,12 +11,14 @@
 int respawn_subsystem(int subsystemIndex);
 
 //Subsystem info
-#define MAX_SUBSYSTEMS 10
+#define MAX_SUBSYSTEMS    10
+#define RESTART_DELAY_MS  5000
 
 //table storing subsystem info
 typedef struct {
     pid_t pid;
     uint64_t lastTimeReported;
+    uint64_t restartAfter;   // earliest time we will respawn (ms)
     int responseTime; //ms
     int criticalTime; //ms
     ProcessLifeStatus lifeStatus;
@@ -63,8 +65,13 @@ void on_child_exit(int signo) //Child process has died, we are now ready to spaw
     while ((dead_pid = waitpid(-1, NULL, WNOHANG)) > 0) {
         for (int i = 0; i < MAX_SUBSYSTEMS; i++)
         {
-            if (processTable[i].pid == dead_pid && processTable[i].lifeStatus == DEAD)
+            if (processTable[i].pid == dead_pid) {
+                if (processTable[i].lifeStatus != DEAD)
+                    printf("[WATCHDOG] %s died unexpectedly, scheduling restart\n",
+                           processTable[i].subsystemName);
+                processTable[i].restartAfter = get_current_time_ms() + RESTART_DELAY_MS;
                 processTable[i].lifeStatus = RESTARTING;
+            }
         }
     }
 }
@@ -138,7 +145,7 @@ void run_health_diagnostics()
 
     for (int i = 0; i < MAX_SUBSYSTEMS; i++)
     {
-        if (processTable[i].lifeStatus == RESTARTING) // Has been killed, now spawn
+        if (processTable[i].lifeStatus == RESTARTING && now >= processTable[i].restartAfter)
         {
             int ret = spawn_subsystem(processTable[i].processPath, processTable[i].processName,
                                       i, processTable[i].responseTime, processTable[i].criticalTime, processTable[i].subsystemName);
