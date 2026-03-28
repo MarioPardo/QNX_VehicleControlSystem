@@ -47,7 +47,7 @@ void processUserBrakeInput(BrakingContext* context, float brakeLevel)
     context->currentBrakeLevel = newBrakeLevel;
 
     //print received data and new brake level
-    printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f \n", brakeLevel, context->currentBrakeLevel);
+   // printf("[BRAKE SYSTEM] Received User Brake Input: %.2f, New Brake Level: %.2f \n", brakeLevel, context->currentBrakeLevel);
 }
 
 
@@ -66,7 +66,7 @@ void processVehicleBrakeData(BrakingContext* context, float brakeTemp)
 
 
     //print received data and new safe brake level
-    printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
+    //printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
 
     return;
 }
@@ -127,15 +127,15 @@ int setupCommChannels(int* watchdog_coid, int* telemetry_coid, int* vehiclesende
 
 
     // connect to telemetry
-    //*telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
-    //if (*telemetry_coid == -1) return -1;
-    //printf("[BRAKE] Connected to telemetry\n");
+    *telemetry_coid = connect_by_name_with_retries("telemetry_system", max_retries, retry_sleep_s);
+    if (*telemetry_coid == -1) return -1;
+    printf("[BRAKE] Connected to telemetry\n");
 
 
     //connect to vehicle sender
-   // *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
-    //if (*vehiclesender_coid == -1) return -1;
-   // printf("[BRAKE] Connected to vehicle sender\n");
+    *vehiclesender_coid = connect_by_name_with_retries("vehicle_sender", max_retries, retry_sleep_s);
+    if (*vehiclesender_coid == -1) return -1;
+    printf("[BRAKE] Connected to vehicle sender\n");
 
 
 

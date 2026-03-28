@@ -13,7 +13,7 @@ class UDPCommunicator:
     Provides methods for sending and receiving JSON messages.
     """
     
-    def __init__(self, send_host='127.0.0.1', send_port=5000, recv_port=5001):
+    def __init__(self, send_host='192.168.1.2', send_port=5000, recv_port=6001):
         """
         Initialize UDP communicator with separate send and receive channels.
         
