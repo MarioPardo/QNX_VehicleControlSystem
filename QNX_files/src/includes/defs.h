@@ -66,7 +66,7 @@ typedef struct {
     double brake_level;    
     double throttle_level; 
     double steering_angle; 
-    char toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [4];         //[ D = 0 , R = 1]
     int snowmode;
 >>>>>>> c5ae921 (Adding changes to cater for new vehicle sender.c)
 } ProcessMsg;
@@ -129,7 +129,7 @@ typedef struct
     double throttle;
     double speed;           // current speed from sim in webots  
     double temp;            // temp value which wil be coming from webots
-    char toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [4];         //[ D = 0 , R = 1]
     int chaos_active;       // Indicator of chaos mode
 
 }message ;
@@ -171,7 +171,7 @@ typedef struct
     double brake_level;       // [  0 , 1]
     double steering_level;    // [ -1 , 1]
     int   snow_mode;
-    char toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [4];         //[ D = 0 , R = 1]
     
 }vehicle_controls_data;
 

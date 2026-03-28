@@ -34,6 +34,7 @@ void build_test_vehicle_controls(vehicle_controls *state, int tick) {
 
     // gear stays D for now
     strncpy(state->data.toggleGear, "D", sizeof(state->data.toggleGear) - 1);
+    state->data.toggleGear[1] = '\0';
 }
 // -----------------------------------------------------------------------
 
@@ -129,6 +130,7 @@ int main(int argc, char *argv[]) {
                     state.data.throttle_level = msg.throttle_level;
 
                     strncpy(state.data.toggleGear, msg.toggleGear, sizeof(state.data.toggleGear) - 1);
+                    state.data.toggleGear[sizeof(state.data.toggleGear) - 1] = '\0';
                     break;
 
                 case SUBSYS_STEERING:
