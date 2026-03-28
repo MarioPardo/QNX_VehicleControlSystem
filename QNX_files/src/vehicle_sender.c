@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     timer_create(CLOCK_MONOTONIC, &event, &timer_id);
     struct itimerspec itime;
     itime.it_value.tv_sec  = 0;
-    itime.it_value.tv_nsec = 100000000;   // 100ms
+    itime.it_value.tv_nsec = 200000000;   // 200ms
     itime.it_interval      = itime.it_value;
     timer_settime(timer_id, 0, &itime, NULL);
 
@@ -100,14 +100,12 @@ int main(int argc, char *argv[]) {
             // timer fired — package current state and send to Webots
             if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) {
 
-                // TEMP: fake data for pipeline testing
-                build_test_vehicle_controls(&state, tick++);
-                //  remove once real process data flows in
+                // build_test_vehicle_controls(&state, tick++); // disabled: real data from subsystems
 
                 char *json = sim_data_to_json(&state);
                 sendto(sockfd, json, strlen(json), 0,
                        (struct sockaddr *)&dest, sizeof(dest));
-                //printf("[VEHICLE_SENDER-JSON-STRING] sent to Webots: %s\n", json);
+                printf("[VEHICLE_SENDER-JSON-STRING] sent to Webots: %s\n", json);
                 free(json);
 
                 // check in with watchdog
@@ -128,9 +126,9 @@ int main(int argc, char *argv[]) {
                 case SUBSYS_DRIVE:
                     printf("[VEHICLE_SENDER] Drive update received\n");
                     state.data.throttle_level = msg.throttle_level;
-
+                    state.data.steering_level = msg.steering_angle;
+                    state.data.snow_mode      = msg.snowmode;
                     strncpy(state.data.toggleGear, msg.toggleGear, sizeof(state.data.toggleGear) - 1);
-                    // state.data.toggleGear[sizeof(state.data.toggleGear) - 1] = '\0';
                     break;
 
                 case SUBSYS_STEERING:

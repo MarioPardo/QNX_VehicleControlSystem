@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 
 import pyqtgraph as pg
 
-IP = "192.168.56.126"
+IP = "192.168.1.1"
 
 
 class Dashboard(QWidget):
@@ -32,8 +32,8 @@ class Dashboard(QWidget):
         # UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(("127.0.0.1", 6000))
-        self.server_address = ("127.0.0.1", 5000)
+        self.sock.bind(("192.168.1.1", 6000)) #listening
+        self.server_address = ("192.168.1.2", 5000) #sending
 
         self.last_packet_time = time.time()
 
@@ -193,7 +193,7 @@ class Dashboard(QWidget):
 
         self.control_timer = QTimer()
         self.control_timer.timeout.connect(self.send_controls)
-        self.control_timer.start(100)
+        self.control_timer.start(200)
 
         self.health_timer = QTimer()
         self.health_timer.timeout.connect(self.check_connection)

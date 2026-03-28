@@ -111,12 +111,15 @@ class VehicleManager:
         self.driver.setGear(1)
 
         self.udp_comm = UDPCommunicator(
-            send_host='127.0.0.1', send_port=5000, recv_port=6001
+            send_host='192.168.1.2', send_port=5000, recv_port=6001
         )
 
         self.steering_subsystem = SteeringSubsystem(self.driver)
         self.braking_subsystem = BrakingSubsystem(self.driver)
         self.throttle_subsystem = ThrottleSubsystem(self.driver)
+
+        self._telem_every = max(1, 200 // self.time_step)  # steps per 200ms
+        self._telem_counter = 0
 
     def apply_brake(self, brake_level):
         """Apply braking and cut throttle."""
@@ -185,7 +188,10 @@ class VehicleManager:
     def run(self):
         while self.driver.step() != -1:
             self.process_udp()
-            self.send_telemetry()
+            self._telem_counter += 1
+            if self._telem_counter >= self._telem_every:
+                self._telem_counter = 0
+                self.send_telemetry()
 
 
 if __name__ == '__main__':
