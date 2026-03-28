@@ -284,7 +284,7 @@ class Dashboard(QWidget):
 
             data = message["data"]
 
-            self.speed_label.setText(str(int(data["Speed"])))
+            self.speed_label.setText(str(abs(int(data["Speed"]))))
 
             warnings = data.get("Warnings", [])
             if warnings:
