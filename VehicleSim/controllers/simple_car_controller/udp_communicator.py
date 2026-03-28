@@ -67,6 +67,7 @@ class UDPCommunicator:
         """
         try:
             data, addr = self.recv_socket.recvfrom(1024)  # Buffer size of 1024 bytes
+            print(f"[UDP RAW] from {addr}: {data}")
             message_json = data.decode('utf-8')
             message_dict = json.loads(message_json)
             return message_dict

@@ -60,13 +60,14 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         // parse JSON into msg_packet
         msg_packet p;
         json_to_msg_packet(buffer, &p);
+        //printf("[CLIENT] parsed -> origin=%s subsys=%s speed=%.2f\n", p.origin, p.subsys, p.msg.speed);
 
         //From here then on send the data to appropriate processes , braking etc 
         if (strcmp(p.subsys, "Brake") == 0) {
             MsgSend(brake_coid, &p, sizeof(p), NULL, 0);
            // printf("[CLIENT] : Received Braking data from Dashboard \n");
         }
-        else if (strcmp(p.subsys, "Driving") == 0) {
+        else if (strcmp(p.subsys, "Drive") == 0) {
             
             MsgSend(drive_coid, &p, sizeof(p), NULL, 0);
            // printf("[CLIENT] : Received driving data from Dashboard \n");
@@ -81,7 +82,7 @@ void main_qnx_receiver(int sockfd, int brake_coid , int drive_coid) {
         // Testing comment to identify source of data 
 
         if (strcmp(p.origin, "VehicleData") == 0) {
-            printf("[CLIENT] : Received Vehicle Data from Webots \n");
+            //printf("[CLIENT] : Received Vehicle Data from Webots \n");
 
         }
         else if (strcmp(p.origin, "UserInput") == 0) {

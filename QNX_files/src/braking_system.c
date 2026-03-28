@@ -66,28 +66,19 @@ void processVehicleBrakeData(BrakingContext* context, float brakeTemp)
 
 
     //print received data and new safe brake level
-    //printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
+   // printf("[BRAKE SYSTEM] Received Brake Temp: %.2f, New Max Safe Brake Level: %.2f\n", brakeTemp, context->maxSafeBrakeLevel);
 
     return;
 }
 
-void dispatchBrakeData(BrakingContext* context, int telemetry_coid, int vehiclesender_coid) 
+void dispatchBrakeData(BrakingContext* context, int telemetry_coid, int vehiclesender_coid)
 {
-    //send message to telemetry
-        //in this case, it would just be a warning if necessary
-        //if (context->currentBrakeTemp > maxBrakeTemp)
-            //send warning to telemetry
-
-
-
-    //send controls to vehicle sender
-
-    // Since other part not fully implemented Ill leave this commented out for now as potential solution to this
-    // where are we getting speed on here , for now ill just set it to zero
-
-    
-
-
+    ProcessMsg msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.subsys      = SUBSYS_BRAKE;
+    msg.brake_level = context->currentBrakeLevel;
+    MsgSend(vehiclesender_coid, &msg, sizeof(msg), NULL, 0);
+    MsgSend(telemetry_coid,     &msg, sizeof(msg), NULL, 0);
 }
 
 /// Communication ///////
