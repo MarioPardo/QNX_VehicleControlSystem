@@ -267,7 +267,8 @@ class Dashboard(QWidget):
                 "throttle": {
                     "level": self.throttle
                 },
-                "gear": self.gear
+                "gear": self.gear,
+                "snow": self.snow_mode
             }
         }
 
@@ -276,7 +277,6 @@ class Dashboard(QWidget):
             "origin": "UserInput",
             "subsys": "Mode",
             "data": {
-                "snow": self.snow_mode,
                 "chaos": "brake" if chaos_active else None
             }
         }
@@ -299,11 +299,6 @@ class Dashboard(QWidget):
             data = message["data"]
 
             self.speed_label.setText(str(int(data["Speed"])))
-
-            if data["Mode"]["Snow"]:
-                self.snow_btn.setText("Snow Mode ON")
-            else:
-                self.snow_btn.setText("Snow Mode OFF")
 
             warnings = data.get("Warnings", [])
             if warnings:
@@ -363,6 +358,7 @@ class Dashboard(QWidget):
 
     def toggle_snow_mode(self):
         self.snow_mode = not self.snow_mode
+        self.snow_btn.setText("Snow Mode ON" if self.snow_mode else "Snow Mode OFF")
 
     # CHAOS TRIGGER (3 seconds)
     def trigger_chaos(self):

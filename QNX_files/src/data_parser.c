@@ -130,21 +130,19 @@ void json_to_msg_packet(const char *json_str, msg_packet *p) {
             p->msg.toggleGear[sizeof(p->msg.toggleGear) - 1] = '\0';
         }
 
+        cJSON *snow = cJSON_GetObjectItemCaseSensitive(data, "snow");
+        if (cJSON_IsBool(snow))
+            p->msg.enabled = cJSON_IsTrue(snow);
+
         cJSON *speed = cJSON_GetObjectItemCaseSensitive(data, "speed");
         if (cJSON_IsNumber(speed))
             p->msg.speed = speed->valuedouble;
     }
 
     // ----------------------------------------------------------
-    // MODE: { "subsys": "Mode", "data": { "snow": true, "chaos": "brake"|null } }
+    // MODE: { "subsys": "Mode", "data": { "chaos": "brake"|null } }
     // ----------------------------------------------------------
     else if (strcmp(p->subsys, "Mode") == 0) {
-
-        cJSON *snow = cJSON_GetObjectItemCaseSensitive(data, "snow");
-        if (cJSON_IsBool(snow))
-            p->msg.enabled = cJSON_IsTrue(snow);
-        else if (cJSON_IsNumber(snow))
-            p->msg.enabled = (snow->valueint != 0);
 
         cJSON *chaos = cJSON_GetObjectItemCaseSensitive(data, "chaos");
         if (cJSON_IsString(chaos) && strlen(chaos->valuestring) > 0)
