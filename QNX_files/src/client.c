@@ -155,8 +155,8 @@ int main(int argc, char *argv[]) {
     pthread_t wd_thread;
     pthread_create(&wd_thread, NULL, watchdog_thread, NULL);
 
-    // setup UDP socket for receiving from Python
-    receiver_setup();
+    // setup UDP socket for receiving from Python    
+    sockfd=receiver_setup();
 
     printf("[CLIENT] Listening on port %d\n", LISTEN_PORT);
 

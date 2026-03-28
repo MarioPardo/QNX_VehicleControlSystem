@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <math.h>
 
 #include <sys/neutrino.h>
 #include <sys/siginfo.h>
@@ -26,16 +27,15 @@
 
 //Networking ///
 #define LISTEN_PORT 5000
-#define SEND_PORT   6000
 
-#define DEST_IP     "192.168.56.1"
+#define DASHBOARD_SEND_PORT  6000   // telemetry → dashboard
+#define WEBOTS_SEND_PORT     6001   // vehicle_sender → webots
 
-extern int sockfd;
-extern struct sockaddr_in dest;
+#define DEST_IP     "192.168.56.1"  //PC IP address
 
-void socket_setup();
-void receiver_setup();
-void sender_setup();
+
+int receiver_setup();
+int sender_setup(const char *ip, int port,struct sockaddr_in *dst);
 
 
 // Dashboard -> QNX Messaging
@@ -43,14 +43,21 @@ typedef struct { float speed; float brake_level; } BrakeUpdate;
 typedef struct { float value; } ThrottleUpdate;
 typedef struct { float angle; } SteeringUpdate;
 
-
+// This i the structure tht all subprocesse are going to use to communicate to either telemetry or vehicle_sender
+// Dont worry about what data is empty just ensure all fields are set to zero upon initializing and then set to zero , the functions inside vehicle_sender and telem.c will know what to pick
+// Ensure to set non used fields to zero
 typedef struct {
     int subsys;
-    union {
-        BrakeUpdate    brake;
-        ThrottleUpdate throttle;
-        SteeringUpdate steering;
-    } data;
+    char brake_warnings [10][64];
+    char speed_warnings [10][64];
+    int  brake_warning_count; 
+    int  speed_warning_count; 
+    double speed;
+    double brake_level;    
+    double throttle_level; 
+    double steering_angle; 
+    char toggleGear [4];         //[ D = 0 , R = 1]
+    int snowmode;
 } ProcessMsg;
 
 // Braking -> warnings 
@@ -74,20 +81,22 @@ typedef enum {
 #define SYS_DRIVE_RESPONSETIME_MS 3000
 #define SYS_CLIENT_RESPONSETIME_MS 1000
 #define SYS_TELEMETRY_RESPONSETIME_MS 2000
+#define SYS_VEHICLE_SENDER_RESPONSETIME_MS 2000
 
 //critical times : how many MS since last check in such that we kill and restart process
 #define SYS_BRAKING_CRITICALTIME_MS 10000 
 #define SYS_DRIVE_CRITICALTIME_MS 6000
 #define SYS_CLIENT_CRITICALTIME_MS 2000 
 #define SYS_TELEMETRY_CRITICALTIME_MS 4000 
-
+#define SYS_VEHICLE_SENDER_CRITICALTIME_MS 4000 
 
 typedef enum {
     SUBSYS_BRAKE=0,
     SUBSYS_DRIVE=1,
     SUBSYS_STEERING=2,
     SUBSYS_TELEMETRY=3,
-    SUBSYS_CLIENT=4
+    SUBSYS_CLIENT=4,
+    SUBSYS_VEHICLE_SENDER=5
 } SubsystemIDs;
 
 typedef enum {
@@ -109,7 +118,7 @@ typedef struct
     double throttle;
     double speed;           // current speed from sim in webots  
     double temp;            // temp value which wil be coming from webots
-    char toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [4];         //[ D = 0 , R = 1]
     int chaos_active;       // Indicator of chaos mode
 
 }message ;
@@ -151,7 +160,7 @@ typedef struct
     double brake_level;       // [  0 , 1]
     double steering_level;    // [ -1 , 1]
     int   snow_mode;
-    char toggleGear [2];         //[ D = 0 , R = 1]
+    char toggleGear [4];         //[ D = 0 , R = 1]
     
 }vehicle_controls_data;
 

@@ -82,6 +82,10 @@ void dispatchBrakeData(BrakingContext* context, int telemetry_coid, int vehicles
 
     //send controls to vehicle sender
 
+    // Since other part not fully implemented Ill leave this commented out for now as potential solution to this
+    // where are we getting speed on here , for now ill just set it to zero
+
+    
 
 
 }

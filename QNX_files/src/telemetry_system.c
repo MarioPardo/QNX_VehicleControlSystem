@@ -81,7 +81,9 @@ int main(int argc, char *argv[]) {
 
     // For udp connection to python dashboard ( Might do sending here the n receiving elsewhere )
     printf("[TELEMETRY] Setting up sender connection UDP \n");
-    sender_setup();
+    
+    sockfd = sender_setup(DEST_IP, DASHBOARD_SEND_PORT, &dest);
+
     printf("[TELEMETRY] DONE - connection UDP \n");
 
     // connect to own channel for timer pulses
@@ -119,6 +121,7 @@ int main(int argc, char *argv[]) {
     while (1) {
         int rcvid = MsgReceive(attach->chid, &pulse, sizeof(pulse), NULL);
 
+        // for pulse check
         if (rcvid == 0) {
             // timer fired - package and send to Python //Going to fix this after testing  , promise the PULSEBAKING
              if (pulse.code == PULSE_SUBSYSTEM_INTERNAL) 
@@ -146,7 +149,10 @@ int main(int argc, char *argv[]) {
                 
                 memcpy(t.tel.warnings, state.warnings, sizeof(state.warnings));
  
-                
+                // Reset the warnings array to empty 
+                memset(state.warnings, 0, sizeof(state.warnings));
+                state.warning_count = 0;
+
                 // convert and send to Python
                 char *json = telemetry_to_json(&t);
                 sendto(sockfd, json, strlen(json), 0,
@@ -159,7 +165,8 @@ int main(int argc, char *argv[]) {
                 // check in with watchdog
                 MsgSendPulse(watchdog_coid, -1, PULSE_SUBSYSTEM_ALIVE, SUBSYS_TELEMETRY);
             }
-
+        
+        // for receving data from subsystems
         } else if (rcvid > 0) {
             // message from a subsystem
             // This is what the subsystems should be sending 
@@ -169,22 +176,35 @@ int main(int argc, char *argv[]) {
 
             switch (msg.subsys) {
                 case SUBSYS_BRAKE:
-                    printf("[TELEMETRY] Hello from brake \n");
-                    state.speed = msg.data.brake.speed;
-                    // state.brake = msg.data.brake.brake_level;
-                    // printf("[TELEMETRY] Brake update - speed: %.1f\n", state.speed);
+                    printf("[TELEMETRY] Hello from brake\n");
+                    state.speed = msg.speed;
+
+                    // append brake warnings if any were sent
+                    for (int i = 0; i < msg.brake_warning_count; i++) {
+                        if (state.warning_count >= 10){
+                            printf("[TELEMETRY] Brake warning count over limit");
+                            break;  // don't overflow state array
+                        }
+                        strncpy(state.warnings[state.warning_count], msg.brake_warnings[i], 63);
+                        state.warnings[state.warning_count][63] = '\0';
+                        state.warning_count++;
+                    }
                     break;
-                
-                // So we are not sending throttle anymore to the dashboard . just speed, snowmode and warnings
+
                 case SUBSYS_DRIVE:
-                    printf("[TELEMETRY] Hello from driving \n");
-                    
-                    state.snow_mode = msg.data.throttle.value;
+                    printf("[TELEMETRY] Hello from driving\n");
+                    state.snow_mode = msg.snowmode;
+
+                    for (int i = 0; i < msg.speed_warning_count; i++) {
+                        if (state.warning_count >= 10){
+                            printf("[TELEMETRY] Speed warning count over limit");
+                            break;
+                        } 
+                        strncpy(state.warnings[state.warning_count], msg.speed_warnings[i], 63);
+                        state.warnings[state.warning_count][63] = '\0';
+                        state.warning_count++;
+                    }
                     break;
-                // case SUBSYS_MODE:
-                //     printf("[TELEMETRY] Hello from MODE \n");
-                //     state.steering_angle = msg.data.steering.angle;
-                //     break;
 
             }
             MsgReply(rcvid, EOK, NULL, 0);
