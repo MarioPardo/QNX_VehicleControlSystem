@@ -1,10 +1,3 @@
-//This process communicates with webots through UDP connection by sending over the webots data received from the processes .
-// Sort of identical to telemetry.c but now instead of sending dashboard data to dashboard its send the vehicle data to webots .
-// Has to connect to webots via  UDP
-// Has to create and store its own state before sending the sim data 
-// The vehicle control data basically
-
-// vehicle_sender.c
 // Receives vehicle control data from subsystem processes (brake, drive, steering)
 // and forwards it to the Webots sim via UDP.
 // Mirror of telemetry.c but targets Webots instead of the Python dashboard.
