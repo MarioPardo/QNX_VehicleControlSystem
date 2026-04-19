@@ -1,9 +1,8 @@
 # QNX Vehicle Control System
 
-This repository contains our project for COMP4900 RTOS class.
+We implement a QNX-based vehicle control system that uses RTOS principles to ensure that critical components stay healthy and active under varying levels of stress on the system.
 
-We are implementing a QNX-based vehicle control system that uses RTOS principles to ensure that critical components stay healthy and active under varying levels of stress on the system.
-
+[Video Demo Link](https://drive.google.com/file/d/1uYeQUPKilvpn_ePVozu5UvaWOICw7Qpc/view?usp=sharing)
 ---
 
 ## Project Structure
@@ -15,6 +14,8 @@ A Python-based GUI that runs on the host PC. It displays live telemetry data rec
 
 ### QNX (QNX_files)
 The core real-time control system, built to run on a QNX target platform (e.g., Raspberry Pi or a QNX VM). It manages multiple processes — including driving, braking, telemetry, and a watchdog — coordinating between them using QNX IPC. It receives vehicle state from Webots and sends telemetry to the dashboard, while also accepting control input.
+
+This is the **core** of the system, with the main player being the watchdog process and architecture
 
 ### VehicleSim (Webots)
 A Webots-based vehicle simulation that runs on the host PC. It simulates the physical vehicle (movement, physics, environment) and communicates vehicle state to the QNX system over UDP. QNX sends back control signals that Webots applies to the simulated vehicle.
